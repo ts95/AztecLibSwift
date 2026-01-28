@@ -6,7 +6,7 @@
 //
 
 /// Reed–Solomon encoder producing systematic parity codewords over GF(2^m).
-public struct ReedSolomonEncoder {
+public struct ReedSolomonEncoder: Sendable {
     public let field: GaloisField
     public let startExponent: Int
 

@@ -12,7 +12,7 @@ import Foundation
 ///
 /// Storage is chunked in machine words to minimize reallocations. Bounds are
 /// checked in debug builds.
-public struct BitBuffer {
+public struct BitBuffer: Sendable {
     @usableFromInline internal var words = [UInt64]()
     /// Total number of valid bits currently stored.
     public private(set) var bitCount: Int = 0
@@ -259,31 +259,28 @@ extension BitBuffer {
     ) -> AztecSymbol {
         precondition(matrixSize > 0)
         let stride = (matrixSize + 7) >> 3
-        var bytes = Data(count: stride * matrixSize)
-        bytes.withUnsafeMutableBytes { raw in
-            guard let ptr = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
-            for y in 0..<matrixSize {
-                let rowStart = y * stride
-                // Zero the whole row buffer
-                for i in 0..<stride { ptr[rowStart + i] = 0 }
-                for x in 0..<matrixSize {
-                    let bitIndex = y * matrixSize + x
-                    let bit = leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
+        var bytes = [UInt8](repeating: 0, count: stride * matrixSize)
+
+        for y in 0..<matrixSize {
+            let rowStart = y * stride
+            for x in 0..<matrixSize {
+                let bitIndex = y * matrixSize + x
+                let bit = leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
+                if bit {
                     let byteIndex = rowStart + (x >> 3)
                     let bitInByte = x & 7
                     if rowOrderMostSignificantBitFirst {
                         // Leftmost module stored in bit 7, next in bit 6, etc.
-                        let mask: UInt8 = 1 << (7 - bitInByte)
-                        if bit { ptr[byteIndex] |= mask }
+                        bytes[byteIndex] |= 1 << (7 - bitInByte)
                     } else {
                         // Leftmost module stored in bit 0, next in bit 1, etc.
-                        let mask: UInt8 = 1 << bitInByte
-                        if bit { ptr[byteIndex] |= mask }
+                        bytes[byteIndex] |= 1 << bitInByte
                     }
                 }
             }
         }
-        return AztecSymbol(size: matrixSize, rowStride: stride, bytes: bytes)
+
+        return AztecSymbol(size: matrixSize, rowStride: stride, bytes: Data(bytes))
     }
 
     // MARK: - Mode-message helpers (GF(16) nibbles)

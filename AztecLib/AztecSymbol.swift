@@ -8,7 +8,7 @@
 import Foundation
 
 /// A contiguous, row-major representation of the rendered Aztec matrix.
-public struct AztecSymbol {
+public struct AztecSymbol: Sendable {
     /// Side length of the square matrix in modules.
     public let size: Int
     /// Row stride in bytes for the exported raster.

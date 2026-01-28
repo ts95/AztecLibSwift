@@ -10,7 +10,7 @@ import Foundation
 // MARK: - Aztec Encoding Modes
 
 /// The encoding modes defined by ISO/IEC 24778.
-public enum AztecMode: Int, CaseIterable {
+public enum AztecMode: Int, CaseIterable, Sendable {
     case upper = 0   // A-Z, space (5 bits)
     case lower = 1   // a-z, space (5 bits)
     case mixed = 2   // Control chars, punctuation subset (5 bits)
@@ -22,7 +22,7 @@ public enum AztecMode: Int, CaseIterable {
 // MARK: - Mode Tables
 
 /// Character encoding tables per ISO/IEC 24778.
-internal struct AztecModeTables {
+internal struct AztecModeTables: Sendable {
     /// Upper mode: A-Z (1-26), space (1)
     /// Code 0 is reserved, codes 1-26 are A-Z, code 27 is special
     static let upperCharToCode: [Character: Int] = {
@@ -152,7 +152,7 @@ internal struct AztecModeTables {
 // MARK: - Mode Transition Codes
 
 /// Latch and shift codes for mode transitions per ISO/IEC 24778.
-internal struct AztecModeTransitions {
+internal struct AztecModeTransitions: Sendable {
     /// Latch codes: permanent mode switch
     /// Format: (code, bitWidth)
     static let latchCodes: [AztecMode: [AztecMode: (code: Int, bits: Int)]] = [
@@ -210,7 +210,7 @@ internal struct AztecModeTransitions {
 // MARK: - Aztec Data Encoder
 
 /// Encodes strings and byte arrays into Aztec bit streams with automatic mode selection.
-public struct AztecDataEncoder {
+public struct AztecDataEncoder: Sendable {
 
     /// Encodes a string into a bit buffer using optimal mode selection.
     ///

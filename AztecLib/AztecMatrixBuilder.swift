@@ -10,7 +10,7 @@ import Foundation
 // MARK: - Aztec Matrix Builder
 
 /// Builds the Aztec symbol matrix including finder pattern, mode message, reference grid, and data.
-public struct AztecMatrixBuilder {
+public struct AztecMatrixBuilder: Sendable {
 
     /// The configuration for this symbol.
     public let configuration: AztecConfiguration

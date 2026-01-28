@@ -8,7 +8,7 @@
 // MARK: - CodewordBuffer
 
 /// A thin, type-safe container for Aztec codewords prior to parity generation.
-public struct CodewordBuffer {
+public struct CodewordBuffer: Sendable {
     /// Underlying storage of fixed-width codewords.
     public private(set) var words = [UInt16]()
 

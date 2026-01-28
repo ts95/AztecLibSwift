@@ -10,7 +10,7 @@ import Foundation
 // MARK: - Configuration
 
 /// Selected Aztec symbol parameters derived from payload size and requested EC.
-public struct AztecConfiguration {
+public struct AztecConfiguration: Sendable {
     /// `true` for compact symbols, `false` for full symbols.
     public let isCompact: Bool
     /// Number of concentric data layers.
@@ -30,14 +30,14 @@ public struct AztecConfiguration {
 }
 
 /// Error thrown when no symbol can accommodate the payload.
-public enum AztecConfigurationError: Error {
+public enum AztecConfigurationError: Error, Sendable {
     case payloadTooLarge(payloadBitCount: Int)
 }
 
 // MARK: - Symbol Specification
 
 /// Internal specification for a single Aztec symbol size.
-internal struct SymbolSpec {
+internal struct SymbolSpec: Sendable {
     let isCompact: Bool
     let layerCount: Int
     let wordSizeInBits: Int
@@ -51,7 +51,7 @@ internal struct SymbolSpec {
 /// - GF(2^8):  x^8 + x^5 + x^3 + x^2 + 1 = 0x12D
 /// - GF(2^10): x^10 + x^3 + 1 = 0x409
 /// - GF(2^12): x^12 + x^6 + x^5 + x^3 + 1 = 0x1069
-internal enum AztecPrimitivePolynomials {
+internal enum AztecPrimitivePolynomials: Sendable {
     static let gf6: UInt32 = 0x43
     static let gf8: UInt32 = 0x12D
     static let gf10: UInt32 = 0x409

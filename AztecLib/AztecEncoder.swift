@@ -10,12 +10,12 @@ import Foundation
 // MARK: - Aztec Encoder
 
 /// High-level Aztec code encoder supporting strings and byte arrays.
-public struct AztecEncoder {
+public struct AztecEncoder: Sendable {
 
     // MARK: - Options
 
     /// Configuration options for Aztec encoding.
-    public struct Options {
+    public struct Options: Sendable {
         /// Desired error correction percentage (e.g., 23 means 23%).
         /// Higher values provide more error correction at the cost of larger symbols.
         public var errorCorrectionPercentage: UInt
@@ -42,7 +42,7 @@ public struct AztecEncoder {
     // MARK: - Encoding Errors
 
     /// Errors that can occur during Aztec encoding.
-    public enum EncodingError: Error {
+    public enum EncodingError: Error, Sendable {
         /// The payload is too large for any Aztec symbol.
         case payloadTooLarge(bitCount: Int)
         /// Invalid configuration.
@@ -149,7 +149,7 @@ public struct AztecEncoder {
 extension AztecEncoder {
 
     /// Result containing both the symbol and its configuration.
-    public struct EncodingResult {
+    public struct EncodingResult: Sendable {
         /// The rendered Aztec symbol.
         public let symbol: AztecSymbol
         /// The configuration used for encoding.

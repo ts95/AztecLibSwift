@@ -6,7 +6,7 @@
 //
 
 /// A binary-extension finite field GF(2^m) with log/antilog tables.
-public struct GaloisField {
+public struct GaloisField: Sendable {
     /// m such that field size is 2^m.
     public let wordSizeInBits: Int
     /// Primitive polynomial with the x^m term set.
