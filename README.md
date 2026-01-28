@@ -243,7 +243,7 @@ For detailed explanations of the algorithms and mathematics used in this library
 
 ## License
 
-[Add your license here]
+MIT License
 
 ## References
 
