@@ -1,5 +1,0 @@
----
-triple:          'arm64_32-apple-darwin'
-binary-path:     '/Users/tonisucic/TET/AztecLib/build/Debug-watchos/AztecLibTests.xctest/AztecLibTests'
-relocations:     []
-...
