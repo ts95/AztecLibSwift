@@ -261,7 +261,7 @@ extension BitBuffer {
         let stride = (matrixSize + 7) >> 3
         var bytes = Data(count: stride * matrixSize)
         bytes.withUnsafeMutableBytes { raw in
-            guard var ptr = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
+            guard let ptr = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
             for y in 0..<matrixSize {
                 let rowStart = y * stride
                 // Zero the whole row buffer
@@ -285,5 +285,60 @@ extension BitBuffer {
         }
         return AztecSymbol(size: matrixSize, rowStride: stride, bytes: bytes)
     }
-}
 
+    // MARK: - Mode-message helpers (GF(16) nibbles)
+
+    /// Packs an array of 4-bit nibbles into a bit buffer, most-significant-bit first per nibble.
+    /// Example: nibble 0xA → bits 1010.
+    ///
+    /// - Parameter nibbles: Values in 0x0...0xF.
+    /// - Returns: A `BitBuffer` containing 4 * nibbles.count bits, MSB-first per nibble.
+    public static func makeBitBufferByPackingMostSignificantNibbles(_ nibbles: [UInt8]) -> BitBuffer {
+        var b = BitBuffer()
+        b.reserveCapacity(bitCount: nibbles.count * 4)
+        for n in nibbles {
+            let v = UInt64(n & 0xF)
+            // MSB-first within the nibble: write the top bit first
+            b.appendMostSignificantBits(v << 60, bitCount: 4) // reuse MSB path; top-aligned
+        }
+        return b
+    }
+
+    /// Unpacks 4-bit nibbles from a bit buffer, reading MSB-first per nibble.
+    ///
+    /// - Parameters:
+    ///   - nibbleCount: Number of nibbles to read.
+    /// - Returns: Array of 4-bit values in 0x0...0xF.
+    public func makeMostSignificantNibblesByUnpacking(nibbleCount: Int) -> [UInt8] {
+        var out: [UInt8] = []
+        out.reserveCapacity(nibbleCount)
+        var pos = 0
+        for _ in 0..<nibbleCount {
+            let v = mostSignificantBits(atBitPosition: pos, bitCount: 4)
+            out.append(UInt8((v >> 60) & 0xF))
+            pos += 4
+        }
+        return out
+    }
+
+    /// Computes RS parity over 4-bit nibbles (GF(16)) and returns data+parity nibbles.
+    ///
+    /// - Parameters:
+    ///   - payloadNibbles: Data nibbles to protect. Values must be in 0x0...0xF.
+    ///   - parityNibbleCount: Number of parity symbols to append.
+    ///   - startExponent: Generator root offset (α^(start)...).
+    /// - Returns: Concatenation of `payloadNibbles` and parity nibbles.
+    public static func makeProtectedNibblesForModeMessage(
+        payloadNibbles: [UInt8],
+        parityNibbleCount: Int,
+        startExponent: Int
+    ) -> [UInt8] {
+        precondition(parityNibbleCount >= 0)
+        // GF(16) with primitive poly x^4 + x + 1 = 0x13
+        let gf = GaloisField(wordSizeInBits: 4, primitivePolynomial: 0x13)
+        let rs = ReedSolomonEncoder(field: gf, startExponent: startExponent)
+        let data = payloadNibbles.map { UInt16($0 & 0xF) }
+        let parity = rs.makeParityCodewords(for: data, parityCodewordCount: parityNibbleCount)
+        return data.map { UInt8($0) } + parity.map { UInt8($0 & 0xF) }
+    }
+}

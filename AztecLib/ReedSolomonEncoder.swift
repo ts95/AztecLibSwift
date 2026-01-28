@@ -31,17 +31,31 @@ public struct ReedSolomonEncoder {
         parityCodewordCount: Int
     ) -> [UInt16] {
         guard parityCodewordCount > 0 else { return [] }
-        let gen = makeGeneratorPolynomial(ofDegree: parityCodewordCount)
+        // Generator polynomial g(x) = ∏_{i=0..t-1} (x + α^(start+i))
+        // Coefficients g[0..t], with g[0] == 1 and g[t] == 1 (monic).
+        let g = makeGeneratorPolynomial(ofDegree: parityCodewordCount)
+
+        // LFSR register of length t; systematic parity will be the remainder of D(x) x^t mod g(x).
         var reg = [UInt16](repeating: 0, count: parityCodewordCount)
+
         for d in dataCodewords {
-            let fb = field.add(d, reg[0])
+            // Feedback from the last register cell (right-shift form)
+            let fb = field.add(d, reg[parityCodewordCount - 1])
+
+            // Shift right by one: reg[j] = reg[j-1]
             if parityCodewordCount > 1 {
-                reg.replaceSubrange(0..<(parityCodewordCount - 1), with: reg[1...])
+                for j in stride(from: parityCodewordCount - 1, through: 1, by: -1) {
+                    reg[j] = reg[j - 1]
+                }
             }
-            reg[parityCodewordCount - 1] = 0
+            reg[0] = 0
+
+            // Mix feedback using taps g[1..t] (skip g[0], the constant term; include g[t] which is 1 for monic g)
             for j in 0..<parityCodewordCount {
-                let tap = gen[j]
-                if tap != 0 { reg[j] = field.add(reg[j], field.multiply(fb, tap)) }
+                let tap = g[j + 1]
+                if tap != 0 {
+                    reg[j] = field.add(reg[j], field.multiply(fb, tap))
+                }
             }
         }
         return reg
@@ -63,14 +77,18 @@ public struct ReedSolomonEncoder {
     // MARK: Internals
 
     @usableFromInline internal func makeGeneratorPolynomial(ofDegree t: Int) -> [UInt16] {
+        // Build g(x) = ∏_{i=0}^{t-1} (x + α^(startExponent+i))
+        // Represented as coefficients g[0] + g[1] x + ... + g[t] x^t, with g[0] = 1 initially.
         var g = [UInt16](repeating: 0, count: t + 1)
         g[0] = 1
         for i in 0..<t {
             let root = field.exp[(startExponent + i) % (field.size - 1)]
             var next = [UInt16](repeating: 0, count: g.count + 1)
             for j in 0..<g.count {
-                next[j + 1] = field.add(next[j + 1], g[j])              // x * g
-                next[j] = field.add(next[j], field.multiply(g[j], root)) // (x - root)
+                // Multiply by x: shift coefficients up by one
+                next[j + 1] = field.add(next[j + 1], g[j])
+                // Add constant term for (x + root): g[j] * root
+                next[j] = field.add(next[j], field.multiply(g[j], root))
             }
             g = next
         }
