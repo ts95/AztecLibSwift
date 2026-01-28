@@ -1,0 +1,99 @@
+{
+  "" : {
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecLib-primary.dia",
+    "emit-module-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecLib-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecLib-primary-emit-module.dia",
+    "pch" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecLib-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecLib-primary.swiftdeps"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/AztecConfiguration.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecConfiguration~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/AztecDataEncoder.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecDataEncoder~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/AztecEncoder.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecEncoder~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/AztecMatrixBuilder.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecMatrixBuilder~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/AztecSymbol.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/AztecSymbol~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/BitBuffer.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/BitBuffer~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/CodewordBuffer.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/CodewordBuffer~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/GaloisField.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/GaloisField~partial.swiftmodule"
+  },
+  "/Users/tonisucic/TET/AztecLib/AztecLib/ReedSolomonEncoder.swift" : {
+    "const-values" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.swiftconstvalues",
+    "dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.d",
+    "diagnostics" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.dia",
+    "index-unit-output-path" : "/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.o",
+    "llvm-bc" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.bc",
+    "object" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.o",
+    "swift-dependencies" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder.swiftdeps",
+    "swiftmodule" : "/Users/tonisucic/TET/AztecLib/build/AztecLib.build/Debug-watchos/AztecLib.build/Objects-normal/arm64/ReedSolomonEncoder~partial.swiftmodule"
+  }
+}

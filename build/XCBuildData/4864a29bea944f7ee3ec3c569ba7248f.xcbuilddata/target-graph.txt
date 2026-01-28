@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'AztecLibTests' in project 'AztecLib'
+➜ Explicit dependency on target 'AztecLib' in project 'AztecLib'
+Target 'AztecLib' in project 'AztecLib' (no dependencies)
