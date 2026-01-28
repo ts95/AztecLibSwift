@@ -234,12 +234,12 @@ let symbol = matrix.makeSymbolExport(
 
 For detailed explanations of the algorithms and mathematics used in this library, see the [Docs/](Docs/) directory:
 
-- [Overview](Docs/01-Overview.md) - What Aztec codes are and how they work
-- [Encoding Pipeline](Docs/02-EncodingPipeline.md) - How data becomes a barcode
-- [Mode Encoding](Docs/03-ModeEncoding.md) - Text compression using modes
-- [Galois Fields](Docs/04-GaloisFields.md) - The math behind error correction
-- [Reed-Solomon](Docs/05-ReedSolomon.md) - How error correction works
-- [Symbol Layout](Docs/06-SymbolLayout.md) - Structure of an Aztec barcode
+- [Overview](AztecLib/Docs/01-Overview.md) - What Aztec codes are and how they work
+- [Encoding Pipeline](AztecLib/Docs/02-EncodingPipeline.md) - How data becomes a barcode
+- [Mode Encoding](AztecLib/Docs/03-ModeEncoding.md) - Text compression using modes
+- [Galois Fields](AztecLib/Docs/04-GaloisFields.md) - The math behind error correction
+- [Reed-Solomon](AztecLib/Docs/05-ReedSolomon.md) - How error correction works
+- [Symbol Layout](AztecLib/Docs/06-SymbolLayout.md) - Structure of an Aztec barcode
 
 ## License
 
