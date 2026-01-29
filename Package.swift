@@ -5,6 +5,13 @@ import PackageDescription
 
 let package = Package(
     name: "AztecLib",
+    platforms: [
+        .iOS(.v15),
+        .macOS(.v12),
+        .tvOS(.v15),
+        .watchOS(.v8),
+        .visionOS(.v1),
+    ],
     products: [
         .library(
             name: "AztecLib",
@@ -14,7 +21,8 @@ let package = Package(
     targets: [
         .target(
             name: "AztecLib",
-            path: "AztecLib"
+            path: "AztecLib",
+            exclude: ["Docs"]
         ),
         .testTarget(
             name: "AztecLibTests",
