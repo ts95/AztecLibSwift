@@ -300,18 +300,21 @@ public struct AztecMatrixBuilder: Sendable {
 
         // Reference grid spacing is 16 modules from center
         // Lines extend from the edge of the finder to the edge of the symbol
+        // Only draw the actual number of grid line sets for this symbol's layer count
+        let refLineCount = (configuration.layerCount - 1) / 15
 
-        // Calculate grid line positions
+        // Calculate grid line positions (only up to refLineCount sets)
         var gridPositions: [Int] = []
-        var pos = center + 16
-        while pos < size {
-            gridPositions.append(pos)
-            pos += 16
-        }
-        pos = center - 16
-        while pos >= 0 {
-            gridPositions.append(pos)
-            pos -= 16
+        for i in 1...refLineCount {
+            let offset = i * 16
+            let posRight = center + offset
+            let posLeft = center - offset
+            if posRight < size {
+                gridPositions.append(posRight)
+            }
+            if posLeft >= 0 {
+                gridPositions.append(posLeft)
+            }
         }
 
         // Draw horizontal and vertical grid lines
@@ -344,7 +347,9 @@ public struct AztecMatrixBuilder: Sendable {
         guard hasReferenceGrid else { return false }
         let dx = abs(x - center)
         let dy = abs(y - center)
-        return (dx > 7 && dx % 16 == 0) || (dy > 7 && dy % 16 == 0)
+        let refLineCount = (configuration.layerCount - 1) / 15
+        let maxGridDistance = refLineCount * 16
+        return (dx > 7 && dx % 16 == 0 && dx <= maxGridDistance) || (dy > 7 && dy % 16 == 0 && dy <= maxGridDistance)
     }
 
     // MARK: - Data Placement
@@ -388,7 +393,9 @@ public struct AztecMatrixBuilder: Sendable {
 
         while true {
             let radius = startRadius + layer * 2
-            if radius >= size / 2 { break }
+            // Continue while the ring's outer edge (radius + 1) can still fit in the symbol
+            // Use > instead of >= to allow the final ring that reaches the symbol edge
+            if radius > size / 2 { break }
 
             // Each layer is a ring, 2 modules wide
             // Counter-clockwise starting from top-right, going left along top
@@ -463,9 +470,12 @@ public struct AztecMatrixBuilder: Sendable {
         if hasReferenceGrid {
             let dx = x - center
             let dy = y - center
-            // Grid lines at multiples of 16 from center
-            if abs(dx) > 7 && abs(dx) % 16 == 0 { return true }
-            if abs(dy) > 7 && abs(dy) % 16 == 0 { return true }
+            // Grid lines at multiples of 16 from center, but only up to the actual number of grid line sets
+            // Layer 16-30: 1 set at ±16, Layer 31-32: 2 sets at ±16 and ±32
+            let refLineCount = (configuration.layerCount - 1) / 15
+            let maxGridDistance = refLineCount * 16
+            if abs(dx) > 7 && abs(dx) % 16 == 0 && abs(dx) <= maxGridDistance { return true }
+            if abs(dy) > 7 && abs(dy) % 16 == 0 && abs(dy) <= maxGridDistance { return true }
         }
 
         return false

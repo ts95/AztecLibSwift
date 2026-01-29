@@ -840,15 +840,9 @@ struct DataPlacementPreconditionTests {
     }
 
     @Test
-    func standard_symbols_without_reference_grid_have_sufficient_path_capacity() throws {
-        // Verify that symbol specs without reference grids have enough path capacity
-        // Note: Full symbols with layers >= 16 have reference grid issues that need separate investigation
+    func all_standard_symbols_have_sufficient_path_capacity() throws {
+        // Verify that all symbol specs have enough path capacity for their codewords
         for spec in allSymbolSpecs {
-            // Skip full symbols with reference grids (layers >= 16) - known path capacity issue
-            if !spec.isCompact && spec.layerCount >= 16 {
-                continue
-            }
-
             let config = AztecConfiguration(
                 isCompact: spec.isCompact,
                 layerCount: spec.layerCount,
@@ -873,29 +867,30 @@ struct DataPlacementPreconditionTests {
     }
 
     @Test
-    func full_symbols_with_reference_grid_throw_error_for_max_capacity() throws {
-        // Document that full symbols with reference grids (layers >= 16) have path capacity issues
-        // This is a known issue that needs separate investigation
-        let spec = fullSymbolSpecs[15] // Layer 16
+    func full_symbols_with_reference_grid_have_correct_path_capacity() throws {
+        // Verify that full symbols with reference grids (layers >= 16) work correctly
+        // after the fix to isReservedPosition that limits grid lines to actual count
+        for layers in [16, 20, 31, 32] {
+            let spec = fullSymbolSpecs[layers - 1]
 
-        let config = AztecConfiguration(
-            isCompact: false,
-            layerCount: 16,
-            wordSizeInBits: spec.wordSizeInBits,
-            totalCodewordCount: spec.totalCodewordCount,
-            dataCodewordCount: spec.totalCodewordCount - 3,
-            parityCodewordCount: 3,
-            primitivePolynomial: AztecPrimitivePolynomials.polynomial(forWordSize: spec.wordSizeInBits),
-            rsStartExponent: 1
-        )
+            let config = AztecConfiguration(
+                isCompact: false,
+                layerCount: layers,
+                wordSizeInBits: spec.wordSizeInBits,
+                totalCodewordCount: spec.totalCodewordCount,
+                dataCodewordCount: spec.totalCodewordCount - 3,
+                parityCodewordCount: 3,
+                primitivePolynomial: AztecPrimitivePolynomials.polynomial(forWordSize: spec.wordSizeInBits),
+                rsStartExponent: 1
+            )
 
-        let builder = AztecMatrixBuilder(configuration: config)
-        let modeMessage = builder.encodeModeMessage()
-        let codewords = [UInt16](repeating: 0x15, count: config.totalCodewordCount)
+            let builder = AztecMatrixBuilder(configuration: config)
+            let modeMessage = builder.encodeModeMessage()
+            let codewords = [UInt16](repeating: 0x15, count: config.totalCodewordCount)
 
-        // This is expected to throw due to path capacity issues in reference grid handling
-        #expect(throws: AztecMatrixBuilderError.self) {
-            _ = try builder.buildMatrix(dataCodewords: codewords, modeMessageBits: modeMessage)
+            // Should succeed after the reference grid fix
+            let matrix = try builder.buildMatrix(dataCodewords: codewords, modeMessageBits: modeMessage)
+            #expect(matrix.bitCount == builder.symbolSize * builder.symbolSize, "Layer \(layers) should build successfully")
         }
     }
 
