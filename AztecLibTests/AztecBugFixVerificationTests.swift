@@ -497,16 +497,17 @@ struct GaloisFieldValidationTests {
 
     @Test
     func gf_has_correct_field_size() {
-        let testCases: [(Int, Int)] = [
-            (4, 16),
-            (6, 64),
-            (8, 256),
-            (10, 1024),
-            (12, 4096),
+        // Test cases: (wordSize, polynomial, expectedSize)
+        // GF(16) uses 0x13 for mode message RS encoding (not via polynomial lookup)
+        let testCases: [(Int, UInt32, Int)] = [
+            (4, 0x13, 16),      // GF(16) for mode message - polynomial x^4 + x + 1
+            (6, 0x43, 64),      // GF(64)
+            (8, 0x12D, 256),    // GF(256)
+            (10, 0x409, 1024),  // GF(1024)
+            (12, 0x1069, 4096), // GF(4096)
         ]
 
-        for (wordSize, expectedSize) in testCases {
-            let poly = AztecPrimitivePolynomials.polynomial(forWordSize: wordSize)
+        for (wordSize, poly, expectedSize) in testCases {
             let gf = GaloisField(wordSizeInBits: wordSize, primitivePolynomial: poly)
             #expect(gf.size == expectedSize, "GF(2^\(wordSize)) should have size \(expectedSize)")
         }
@@ -706,9 +707,14 @@ struct StuffingPropertyTests {
         // Verify that the number of codewords is reasonable given input bits
         for inputBits in [10, 25, 50, 100, 200] {
             var buffer = BitBuffer()
-            buffer.appendLeastSignificantBits(0x55, bitCount: min(inputBits, 64))
-            if inputBits > 64 {
-                buffer.appendLeastSignificantBits(0xAA, bitCount: inputBits - 64)
+            // Append bits in chunks of at most 64
+            var remaining = inputBits
+            var pattern: UInt64 = 0x55
+            while remaining > 0 {
+                let chunk = min(remaining, 64)
+                buffer.appendLeastSignificantBits(pattern, bitCount: chunk)
+                remaining -= chunk
+                pattern = ~pattern  // Alternate pattern
             }
 
             let codewords = buffer.makeCodewords(codewordBitWidth: 8)

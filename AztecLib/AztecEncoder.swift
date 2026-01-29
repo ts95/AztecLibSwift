@@ -102,6 +102,11 @@ public struct AztecEncoder: Sendable {
         var bestParityCount: Int = 0
 
         for spec in allSymbolSpecs {
+            // Skip compact symbols if preferCompact is false (force full symbols)
+            if !options.preferCompact && spec.isCompact {
+                continue
+            }
+
             // Skip full symbols if we prefer compact and a compact option could fit
             if options.preferCompact && !spec.isCompact && bestSpec != nil && bestSpec!.isCompact {
                 continue
@@ -260,6 +265,11 @@ extension AztecEncoder {
         var bestParityCount: Int = 0
 
         for spec in allSymbolSpecs {
+            // Skip compact symbols if preferCompact is false (force full symbols)
+            if !options.preferCompact && spec.isCompact {
+                continue
+            }
+
             // Skip full symbols if we prefer compact and a compact option could fit
             if options.preferCompact && !spec.isCompact && bestSpec != nil && bestSpec!.isCompact {
                 continue
