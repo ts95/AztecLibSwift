@@ -58,7 +58,7 @@ public struct AztecEncoder: Sendable {
     ///   - options: Encoding options.
     /// - Returns: An `AztecSymbol` containing the rendered barcode.
     /// - Throws: `EncodingError` if encoding fails.
-    public static func encode(_ string: String, options: Options = Options()) throws -> AztecSymbol {
+    public static func encode(_ string: String, options: Options = Options()) throws(EncodingError) -> AztecSymbol {
         let dataBits = AztecDataEncoder.encode(string)
         return try encodeData(dataBits, options: options)
     }
@@ -70,7 +70,7 @@ public struct AztecEncoder: Sendable {
     ///   - options: Encoding options.
     /// - Returns: An `AztecSymbol` containing the rendered barcode.
     /// - Throws: `EncodingError` if encoding fails.
-    public static func encode(_ bytes: [UInt8], options: Options = Options()) throws -> AztecSymbol {
+    public static func encode(_ bytes: [UInt8], options: Options = Options()) throws(EncodingError) -> AztecSymbol {
         let dataBits = AztecDataEncoder.encode(bytes)
         return try encodeData(dataBits, options: options)
     }
@@ -82,7 +82,7 @@ public struct AztecEncoder: Sendable {
     ///   - options: Encoding options.
     /// - Returns: An `AztecSymbol` containing the rendered barcode.
     /// - Throws: `EncodingError` if encoding fails.
-    public static func encode(_ data: Data, options: Options = Options()) throws -> AztecSymbol {
+    public static func encode(_ data: Data, options: Options = Options()) throws(EncodingError) -> AztecSymbol {
         let dataBits = AztecDataEncoder.encode(data)
         return try encodeData(dataBits, options: options)
     }
@@ -90,7 +90,7 @@ public struct AztecEncoder: Sendable {
     // MARK: - Internal Pipeline
 
     /// Core encoding pipeline: data bits -> config -> codewords -> RS parity -> matrix -> symbol.
-    private static func encodeData(_ dataBits: BitBuffer, options: Options) throws -> AztecSymbol {
+    private static func encodeData(_ dataBits: BitBuffer, options: Options) throws(EncodingError) -> AztecSymbol {
         // Step 1: Pick configuration based on payload size
         let configuration: AztecConfiguration
         do {
@@ -99,11 +99,10 @@ public struct AztecEncoder: Sendable {
                 errorCorrectionPercentage: options.errorCorrectionPercentage,
                 preferCompact: options.preferCompact
             )
-        } catch let error as AztecConfigurationError {
-            switch error {
-            case .payloadTooLarge(let bitCount):
-                throw EncodingError.payloadTooLarge(bitCount: bitCount)
-            }
+        } catch AztecConfigurationError.payloadTooLarge(let bitCount) {
+            throw EncodingError.payloadTooLarge(bitCount: bitCount)
+        } catch {
+            // Required for exhaustiveness with typed throws, but never executed
         }
 
         // Step 2: Pack data bits into codewords with stuff bits
@@ -163,7 +162,7 @@ extension AztecEncoder {
     ///   - options: Encoding options.
     /// - Returns: An `EncodingResult` containing the symbol and configuration.
     /// - Throws: `EncodingError` if encoding fails.
-    public static func encodeWithDetails(_ string: String, options: Options = Options()) throws -> EncodingResult {
+    public static func encodeWithDetails(_ string: String, options: Options = Options()) throws(EncodingError) -> EncodingResult {
         let dataBits = AztecDataEncoder.encode(string)
         return try encodeDataWithDetails(dataBits, options: options)
     }
@@ -175,13 +174,13 @@ extension AztecEncoder {
     ///   - options: Encoding options.
     /// - Returns: An `EncodingResult` containing the symbol and configuration.
     /// - Throws: `EncodingError` if encoding fails.
-    public static func encodeWithDetails(_ bytes: [UInt8], options: Options = Options()) throws -> EncodingResult {
+    public static func encodeWithDetails(_ bytes: [UInt8], options: Options = Options()) throws(EncodingError) -> EncodingResult {
         let dataBits = AztecDataEncoder.encode(bytes)
         return try encodeDataWithDetails(dataBits, options: options)
     }
 
     /// Core encoding pipeline that returns configuration details.
-    private static func encodeDataWithDetails(_ dataBits: BitBuffer, options: Options) throws -> EncodingResult {
+    private static func encodeDataWithDetails(_ dataBits: BitBuffer, options: Options) throws(EncodingError) -> EncodingResult {
         let configuration: AztecConfiguration
         do {
             configuration = try pickConfiguration(
@@ -189,11 +188,10 @@ extension AztecEncoder {
                 errorCorrectionPercentage: options.errorCorrectionPercentage,
                 preferCompact: options.preferCompact
             )
-        } catch let error as AztecConfigurationError {
-            switch error {
-            case .payloadTooLarge(let bitCount):
-                throw EncodingError.payloadTooLarge(bitCount: bitCount)
-            }
+        } catch AztecConfigurationError.payloadTooLarge(let bitCount) {
+            throw EncodingError.payloadTooLarge(bitCount: bitCount)
+        } catch {
+            // Required for exhaustiveness with typed throws, but never executed
         }
 
         var dataCodewords = dataBits.makeCodewords(codewordBitWidth: configuration.wordSizeInBits)

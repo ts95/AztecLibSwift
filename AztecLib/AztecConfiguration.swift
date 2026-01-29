@@ -142,7 +142,7 @@ public func pickConfiguration(
     forPayloadBitCount payloadBitCount: Int,
     errorCorrectionPercentage: UInt,
     preferCompact: Bool = true
-) throws -> AztecConfiguration {
+) throws(AztecConfigurationError) -> AztecConfiguration {
     let ecFraction = Double(errorCorrectionPercentage) / 100.0
 
     for spec in allSymbolSpecs {
