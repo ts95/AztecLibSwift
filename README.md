@@ -1,6 +1,6 @@
 # AztecLib
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ts95/AztecLibSwift/releases/tag/1.0.0)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/ts95/AztecLibSwift/releases/tag/1.0.1)
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/Platforms-iOS%20|%20macOS%20|%20tvOS%20|%20watchOS%20|%20visionOS-lightgray.svg)](https://developer.apple.com)
 
@@ -28,7 +28,7 @@ Add AztecLib to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ts95/AztecLibSwift.git", from: "1.0.0")
+    .package(url: "https://github.com/ts95/AztecLibSwift.git", from: "1.0.1")
 ]
 ```
 
@@ -45,7 +45,7 @@ Then add it to your target dependencies:
 
 1. File → Add Package Dependencies
 2. Enter the repository URL
-3. Select version "1.0.0" or later
+3. Select latest version
 
 ## Quick Start
 
@@ -214,9 +214,9 @@ do {
 | 3 | 23×23 | ~300 |
 | 4 | 27×27 | ~470 |
 
-### Full Symbols (1-32 layers)
+### Full Symbols (5-32 layers)
 
-Full symbols range from 19×19 (layer 1) to 151×151 (layer 32), supporting up to ~12,000 bits of data.
+Full symbols range from 31×31 (layer 5) to 151×151 (layer 32), supporting up to ~12,000 bits of data.
 
 ## Thread Safety
 
