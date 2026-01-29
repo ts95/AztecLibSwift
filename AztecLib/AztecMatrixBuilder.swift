@@ -109,25 +109,43 @@ public struct AztecMatrixBuilder: Sendable {
         }
     }
 
-    /// Draws orientation marks for compact symbols.
-    /// Two black modules in upper-right and lower-right corners outside the finder.
+    /// Draws orientation marks for compact symbols per ISO/IEC 24778.
+    /// These marks form an asymmetric pattern so the decoder can determine orientation:
+    /// - Upper-left corner: 1 black module
+    /// - Upper-right corner: 2 black modules (corner + one to the left)
+    /// - Lower-right corner: 3 black modules (L-shape)
     private func drawCompactOrientationMarks(matrix: inout BitBuffer, size: Int, center: Int) {
-        // For compact, orientation marks are at corners of the mode message area
-        // Upper-right corner outside finder (right and up from center)
-        let offset = 5 // Just outside the 9x9 finder area
+        let offset = 5 // Just outside the 9x9 finder area (radius 4) and mode message ring
+
+        // Upper-left corner: 1 black module
+        setModule(matrix: &matrix, size: size, x: center - offset, y: center - offset, value: true)
+
+        // Upper-right corner: 2 black modules
         setModule(matrix: &matrix, size: size, x: center + offset, y: center - offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center - offset + 1, value: true)
         setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center - offset, value: true)
+
+        // Lower-right corner: 3 black modules (L-shape)
+        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset, value: true)
+        setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center + offset, value: true)
+        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset - 1, value: true)
     }
 
-    /// Draws orientation marks for full symbols.
+    /// Draws orientation marks for full symbols per ISO/IEC 24778.
+    /// Same pattern as compact but at a larger offset.
     private func drawFullOrientationMarks(matrix: inout BitBuffer, size: Int, center: Int) {
-        // Full symbols have orientation marks outside the 13x13 finder
-        let offset = 7
-        // Upper-right quadrant marks
+        let offset = 7 // Just outside the 13x13 finder area (radius 6) and mode message ring
+
+        // Upper-left corner: 1 black module
+        setModule(matrix: &matrix, size: size, x: center - offset, y: center - offset, value: true)
+
+        // Upper-right corner: 2 black modules
         setModule(matrix: &matrix, size: size, x: center + offset, y: center - offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center - offset + 1, value: true)
         setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center - offset, value: true)
+
+        // Lower-right corner: 3 black modules (L-shape)
+        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset, value: true)
+        setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center + offset, value: true)
+        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset - 1, value: true)
     }
 
     // MARK: - Mode Message
@@ -150,16 +168,20 @@ public struct AztecMatrixBuilder: Sendable {
         }
     }
 
-    /// Places compact mode message bits around the finder.
+    /// Places compact mode message bits around the finder per ISO/IEC 24778.
+    /// The mode message forms a ring around the finder, placed clockwise starting from upper-left:
+    /// - Top segment: right to left (bits 0-6)
+    /// - Right segment: top to bottom (bits 7-13)
+    /// - Bottom segment: left to right (bits 14-20)
+    /// - Left segment: bottom to top (bits 21-27)
     private func placeCompactModeMessage(matrix: inout BitBuffer, size: Int, center: Int, bits: BitBuffer) {
-        // Mode message segments around the compact finder (radius 5 from center)
-        // 7 bits per segment, 4 segments = 28 bits total
-        let r = 5 // Offset from center for mode message
+        let r = 5 // Offset from center for mode message ring
 
         var bitIndex = 0
 
-        // Top segment: left to right, y = center - r
-        for x in (center - r + 1)..<(center + r) {
+        // Top segment: right to left, y = center - r
+        // Place bits 0-6 from right to left along the top edge
+        for x in stride(from: center + r - 1, through: center - r + 1, by: -1) {
             if x == center { continue } // Skip center column
             let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
             setModule(matrix: &matrix, size: size, x: x, y: center - r, value: bit)
@@ -168,6 +190,7 @@ public struct AztecMatrixBuilder: Sendable {
         }
 
         // Right segment: top to bottom, x = center + r
+        // Place bits 7-13 from top to bottom along the right edge
         bitIndex = 7
         for y in (center - r + 1)..<(center + r) {
             if y == center { continue }
@@ -177,9 +200,10 @@ public struct AztecMatrixBuilder: Sendable {
             if bitIndex >= 14 { break }
         }
 
-        // Bottom segment: right to left, y = center + r
+        // Bottom segment: left to right, y = center + r
+        // Place bits 14-20 from left to right along the bottom edge
         bitIndex = 14
-        for x in stride(from: center + r - 1, to: center - r, by: -1) {
+        for x in (center - r + 1)..<(center + r) {
             if x == center { continue }
             let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
             setModule(matrix: &matrix, size: size, x: x, y: center + r, value: bit)
@@ -188,8 +212,9 @@ public struct AztecMatrixBuilder: Sendable {
         }
 
         // Left segment: bottom to top, x = center - r
+        // Place bits 21-27 from bottom to top along the left edge
         bitIndex = 21
-        for y in stride(from: center + r - 1, to: center - r, by: -1) {
+        for y in stride(from: center + r - 1, through: center - r + 1, by: -1) {
             if y == center { continue }
             let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
             setModule(matrix: &matrix, size: size, x: center - r, y: y, value: bit)
@@ -198,16 +223,15 @@ public struct AztecMatrixBuilder: Sendable {
         }
     }
 
-    /// Places full mode message bits around the finder.
+    /// Places full mode message bits around the finder per ISO/IEC 24778.
+    /// Same pattern as compact but with 10 bits per segment (40 bits total).
     private func placeFullModeMessage(matrix: inout BitBuffer, size: Int, center: Int, bits: BitBuffer) {
-        // Mode message segments around the full finder (radius 7 from center)
-        // 10 bits per segment, 4 segments = 40 bits total
-        let r = 7
+        let r = 7 // Offset from center for mode message ring
 
         var bitIndex = 0
 
-        // Top segment: left to right
-        for x in (center - r + 1)..<(center + r) {
+        // Top segment: right to left
+        for x in stride(from: center + r - 1, through: center - r + 1, by: -1) {
             if x == center { continue }
             let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
             setModule(matrix: &matrix, size: size, x: x, y: center - r, value: bit)
@@ -225,9 +249,9 @@ public struct AztecMatrixBuilder: Sendable {
             if bitIndex >= 20 { break }
         }
 
-        // Bottom segment: right to left
+        // Bottom segment: left to right
         bitIndex = 20
-        for x in stride(from: center + r - 1, to: center - r, by: -1) {
+        for x in (center - r + 1)..<(center + r) {
             if x == center { continue }
             let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
             setModule(matrix: &matrix, size: size, x: x, y: center + r, value: bit)
