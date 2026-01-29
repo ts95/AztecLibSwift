@@ -19,9 +19,21 @@ public struct GaloisField: Sendable {
     ///
     /// - Parameters:
     ///   - wordSizeInBits: The RS symbol width `m` in bits.
-    ///   - primitivePolynomial: The field’s primitive polynomial.
+    ///   - primitivePolynomial: The field's primitive polynomial.
     public init(wordSizeInBits: Int, primitivePolynomial: UInt32) {
         precondition((1...12).contains(wordSizeInBits))
+
+        // Validate primitive polynomial has correct degree
+        let mBit = UInt32(1) << wordSizeInBits
+        precondition(
+            (primitivePolynomial & mBit) != 0,
+            "Primitive polynomial must have x^\(wordSizeInBits) term set"
+        )
+        precondition(
+            primitivePolynomial < (mBit << 1),
+            "Primitive polynomial has terms beyond x^\(wordSizeInBits)"
+        )
+
         self.wordSizeInBits = wordSizeInBits
         self.primitivePolynomial = primitivePolynomial
         self.size = 1 << wordSizeInBits

@@ -78,9 +78,9 @@ public struct ReedSolomonEncoder: Sendable {
 
     @usableFromInline internal func makeGeneratorPolynomial(ofDegree t: Int) -> [UInt16] {
         // Build g(x) = ∏_{i=0}^{t-1} (x + α^(startExponent+i))
-        // Represented as coefficients g[0] + g[1] x + ... + g[t] x^t, with g[0] = 1 initially.
-        var g = [UInt16](repeating: 0, count: t + 1)
-        g[0] = 1
+        // Represented as coefficients g[0] + g[1] x + ... + g[t] x^t.
+        // Start with g(x) = 1 (degree-0 polynomial with single element).
+        var g: [UInt16] = [1]
         for i in 0..<t {
             let root = field.exp[(startExponent + i) % (field.size - 1)]
             var next = [UInt16](repeating: 0, count: g.count + 1)

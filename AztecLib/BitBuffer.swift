@@ -175,6 +175,21 @@ public struct BitBuffer: Sendable {
 
 extension BitBuffer {
 
+    // MARK: - Filler Codeword
+
+    /// Generates a valid filler codeword for the given bit width.
+    ///
+    /// The filler is equivalent to what stuffing produces for an all-zeros input:
+    /// `(0 << 1) | 1 = 1` (the stuff bit prevents all-zeros).
+    /// Per ISO/IEC 24778 stuffing rule: all-zeros becomes `(zeros << 1) | 1 = 1`.
+    /// This is the canonical "empty" codeword that carries no payload data.
+    ///
+    /// - Parameter bitWidth: The codeword bit width (6, 8, 10, or 12).
+    /// - Returns: A valid filler codeword value.
+    public static func makeFillerCodeword(bitWidth: Int) -> UInt16 {
+        return 1
+    }
+
     // MARK: - Codeword packing
 
     /// Rewraps a packed bit stream into fixed-width Aztec codewords with “stuff bit”—rules

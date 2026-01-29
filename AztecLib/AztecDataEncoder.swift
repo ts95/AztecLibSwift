@@ -246,7 +246,11 @@ public struct AztecDataEncoder: Sendable {
 
             // Find best mode for this character
             if let (targetMode, code) = findBestMode(for: char, from: currentMode, lookahead: Array(chars[i...])) {
-                let shouldLatch = shouldLatchToMode(targetMode, from: currentMode, remaining: Array(chars[i...]))
+                // Check if a shift code exists for this transition
+                let shiftExists = AztecModeTransitions.shiftCodes[currentMode]?[targetMode] != nil
+
+                // If no shift code exists, always latch; otherwise use lookahead heuristic
+                let shouldLatch = shiftExists ? shouldLatchToMode(targetMode, from: currentMode, remaining: Array(chars[i...])) : true
 
                 if shouldLatch {
                     appendModeSwitch(from: currentMode, to: targetMode, buffer: &buffer, latch: true)

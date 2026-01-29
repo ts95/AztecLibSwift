@@ -175,6 +175,7 @@ public struct AztecMatrixBuilder: Sendable {
     /// - Bottom segment: left to right (bits 14-20)
     /// - Left segment: bottom to top (bits 21-27)
     private func placeCompactModeMessage(matrix: inout BitBuffer, size: Int, center: Int, bits: BitBuffer) {
+        precondition(bits.bitCount >= 28, "Compact mode message requires 28 bits, got \(bits.bitCount)")
         let r = 5 // Offset from center for mode message ring
 
         var bitIndex = 0
@@ -226,6 +227,7 @@ public struct AztecMatrixBuilder: Sendable {
     /// Places full mode message bits around the finder per ISO/IEC 24778.
     /// Same pattern as compact but with 10 bits per segment (40 bits total).
     private func placeFullModeMessage(matrix: inout BitBuffer, size: Int, center: Int, bits: BitBuffer) {
+        precondition(bits.bitCount >= 40, "Full mode message requires 40 bits, got \(bits.bitCount)")
         let r = 7 // Offset from center for mode message ring
 
         var bitIndex = 0
@@ -335,6 +337,15 @@ public struct AztecMatrixBuilder: Sendable {
 
         // Build the spiral path (2 bits wide, counter-clockwise from center outward)
         let path = buildDataPath(size: size, center: center)
+
+        // Calculate total bits needed
+        let totalBitsNeeded = codewords.count * wordSize
+
+        // Validate path has sufficient capacity (assert in debug, silent in release for backwards compatibility)
+        assert(
+            path.count >= totalBitsNeeded,
+            "Data path has insufficient capacity: need \(totalBitsNeeded) positions, have \(path.count)"
+        )
 
         // Place codewords along the path
         var pathIndex = 0

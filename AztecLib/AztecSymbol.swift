@@ -23,6 +23,11 @@ public struct AztecSymbol: Sendable {
     ///   - rowStride: Byte stride per row.
     ///   - bytes: Packed row data.
     public init(size: Int, rowStride: Int, bytes: Data) {
+        precondition(size > 0, "Size must be positive")
+        precondition(rowStride > 0, "Row stride must be positive")
+        precondition(rowStride >= (size + 7) / 8, "Row stride too small for size")
+        precondition(bytes.count >= rowStride * size, "Bytes buffer too small: need \(rowStride * size), got \(bytes.count)")
+
         self.size = size
         self.rowStride = rowStride
         self.bytes = bytes
