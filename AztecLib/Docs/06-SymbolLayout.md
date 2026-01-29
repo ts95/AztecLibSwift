@@ -201,7 +201,8 @@ Every 16 modules from the center, horizontal and vertical lines of alternating b
 
 ### When Reference Grid Appears
 
-- Layers 1-15: No reference grid
+Full symbols only (layers 4-32):
+- Layers 4-15: No reference grid
 - Layers 16-30: 1 reference grid line each direction
 - Layers 31-32: 2 reference grid lines each direction
 
@@ -222,18 +223,25 @@ The grid lines interrupt data placement—codeword bits skip over grid positions
 
 ### Full Symbol Sizes
 
+Note: Full symbols start at layer 4 (layers 1-3 are not available due to coordinate overlap with the mode message ring).
+
 | Layers | Size | Ref Grid Lines |
 |--------|------|----------------|
-| 1 | 19×19 | 0 |
-| 5 | 35×35 | 0 |
-| 10 | 55×55 | 0 |
-| 15 | 75×75 | 0 |
-| 16 | 81×81 | 1 |
-| 20 | 97×97 | 1 |
-| 31 | 143×143 | 2 |
-| 32 | 151×151 | 2 |
+| 4 | 31×31 | 0 |
+| 5 | 37×37 | 1 |
+| 10 | 57×57 | 1 |
+| 15 | 79×79 | 2 |
+| 16 | 83×83 | 2 |
+| 20 | 101×101 | 3 |
+| 31 | 147×147 | 4 |
+| 32 | 151×151 | 4 |
 
-**Formula:** size = 15 + 4 × layers + 2 × ⌊(layers-1)/15⌋
+**Formula (per ZXing):**
+```
+baseMatrixSize = 14 + 4 × layers
+refLines = ⌊(baseMatrixSize / 2 - 1) / 15⌋
+size = baseMatrixSize + 1 + 2 × refLines
+```
 
 The extra term accounts for reference grid lines.
 

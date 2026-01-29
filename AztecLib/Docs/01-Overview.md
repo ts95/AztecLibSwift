@@ -81,8 +81,8 @@ Larger "full" symbols have a grid of alternating black and white modules every 1
 
 ### Full Symbols
 
-- Larger: 19×19 to 151×151 modules
-- 1 to 32 data layers
+- Larger: 31×31 to 151×151 modules
+- 4 to 32 data layers
 - 13×13 finder pattern
 - Can encode thousands of characters
 

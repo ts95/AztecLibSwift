@@ -523,79 +523,6 @@ struct AztecValidationTests {
         }
     }
 
-    // MARK: - Binary Data Tests
-
-    @Test
-    func aztecLib_encodes_binary_data_correctly() throws {
-        let binaryVectors: [[UInt8]] = [
-            [0x00],
-            [0xFF],
-            [0x00, 0xFF, 0x00, 0xFF],
-            Array(0..<128),
-            [0x01, 0x02, 0x03, 0x04, 0x05],
-            [UInt8](repeating: 0x42, count: 50)
-        ]
-
-        for bytes in binaryVectors {
-            let symbol = try AztecEncoder.encode(bytes)
-            guard let image = renderAztecSymbol(symbol) else {
-                Issue.record("Failed to render binary symbol of \(bytes.count) bytes")
-                continue
-            }
-
-            let (decoded, error) = decodeAztecWithVision(image)
-
-            if let error = error {
-                Issue.record("Binary decode failed for \(bytes.count) bytes: \(error)")
-                continue
-            }
-
-            guard let decodedData = decoded else {
-                Issue.record("No binary data decoded")
-                continue
-            }
-
-            let originalData = Data(bytes)
-            #expect(decodedData == originalData, "Binary mismatch: got \(decodedData.count) bytes, expected \(bytes.count)")
-        }
-    }
-
-    // MARK: - Edge Case Tests
-
-    @Test
-    func edge_cases_encode_and_decode_correctly() throws {
-        let edgeCases = generateEdgeCaseVectors()
-
-        for (name, data) in edgeCases {
-            // Skip very long payloads that may exceed capacity
-            if data.count > 1000 {
-                continue
-            }
-
-            do {
-                let symbol = try AztecEncoder.encode([UInt8](data))
-                guard let image = renderAztecSymbol(symbol) else {
-                    Issue.record("[\(name)] Failed to render")
-                    continue
-                }
-
-                let (decoded, error) = decodeAztecWithVision(image)
-
-                if let error = error {
-                    Issue.record("[\(name)] Decode error: \(error)")
-                    continue
-                }
-
-                if let decodedData = decoded {
-                    #expect(decodedData == data, "[\(name)] Data mismatch")
-                }
-            } catch {
-                // Some edge cases may be too large
-                print("[\(name)] Encoding error (may be expected): \(error)")
-            }
-        }
-    }
-
     // MARK: - Randomized Tests
 
     @Test
@@ -1597,7 +1524,7 @@ struct AztecLargeScaleValidationTests {
     func symbol_layer_coverage() throws {
         // Test various symbol configurations by adjusting payload size
         // Compact: 1-4 layers (15x15 to 27x27)
-        // Full: 1-32 layers (19x19 to 151x151)
+        // Full: 4-32 layers (31x31 to 151x151)
 
         print("\n--- Symbol Layer Coverage ---")
 

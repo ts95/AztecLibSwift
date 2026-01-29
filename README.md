@@ -185,7 +185,7 @@ Returned by `encodeWithDetails()`, contains the selected symbol parameters.
 | Property | Type | Description |
 |----------|------|-------------|
 | `isCompact` | `Bool` | `true` for compact symbols (1-4 layers), `false` for full |
-| `layerCount` | `Int` | Number of data layers (1-4 compact, 1-32 full) |
+| `layerCount` | `Int` | Number of data layers (1-4 compact, 4-32 full) |
 | `wordSizeInBits` | `Int` | Codeword size: 6, 8, 10, or 12 bits |
 | `totalCodewordCount` | `Int` | Total codewords in the symbol |
 | `dataCodewordCount` | `Int` | Codewords available for data |
@@ -214,9 +214,9 @@ do {
 | 3 | 23×23 | ~300 |
 | 4 | 27×27 | ~470 |
 
-### Full Symbols (5-32 layers)
+### Full Symbols (4-32 layers)
 
-Full symbols range from 31×31 (layer 5) to 151×151 (layer 32), supporting up to ~12,000 bits of data.
+Full symbols range from 31×31 (layer 4) to 151×151 (layer 32), supporting up to ~12,000 bits of data.
 
 ## Thread Safety
 

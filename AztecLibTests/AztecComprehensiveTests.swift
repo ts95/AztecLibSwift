@@ -473,14 +473,16 @@ struct SymbolStructureTests {
     }
 
     @Test
-    func full_layer_1_is_19x19() throws {
+    func full_layer_4_is_31x31() throws {
+        // Note: Full symbols start at layer 4, not layer 1.
+        // Layers 1-3 are unavailable due to coordinate overlap with the mode message ring.
         let result = try AztecEncoder.encodeWithDetails(
             "A",
             options: AztecEncoder.Options(preferCompact: false)
         )
 
-        if !result.configuration.isCompact && result.configuration.layerCount == 1 {
-            #expect(result.symbol.size == 19)
+        if !result.configuration.isCompact && result.configuration.layerCount == 4 {
+            #expect(result.symbol.size == 31)
         }
     }
 

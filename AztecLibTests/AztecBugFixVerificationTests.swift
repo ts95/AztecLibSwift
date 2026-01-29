@@ -943,17 +943,18 @@ struct ReferenceGridVerificationTests {
 
     @Test
     func full_symbols_with_many_layers_have_reference_grid() throws {
-        // Full symbols with layers > 1 may have reference grid
+        // Full symbols with layers >= 16 have reference grid lines.
+        // Full symbols start at layer 4 (layers 1-3 are not available).
         let result = try AztecEncoder.encodeWithDetails(
             String(repeating: "X", count: 500),
             options: AztecEncoder.Options(preferCompact: false)
         )
 
-        if !result.configuration.isCompact && result.configuration.layerCount > 1 {
+        if !result.configuration.isCompact && result.configuration.layerCount >= 16 {
             // The symbol should have reference grid lines at multiples of 16 from center
             // We can't easily verify this without accessing internal structure,
             // but we can verify the symbol was created successfully
-            #expect(result.symbol.size > 19, "Large full symbol should have size > 19")
+            #expect(result.symbol.size > 31, "Large full symbol should have size > 31 (layer 4 minimum)")
         }
     }
 }

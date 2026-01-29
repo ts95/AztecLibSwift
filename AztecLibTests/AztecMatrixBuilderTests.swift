@@ -37,16 +37,20 @@ struct AztecMatrixBuilderTests {
 
     @Test
     func full_symbol_size_formula() throws {
-        // Full: size = 15 + 4 * layers + 2 * floor((layers - 1) / 15)
+        // Full symbol size formula (per ZXing):
+        //   baseMatrixSize = 14 + 4 * layers
+        //   refLines = (baseMatrixSize / 2 - 1) / 15
+        //   symbolSize = baseMatrixSize + 1 + 2 * refLines
+        //
+        // Note: Full symbols start at layer 4 (layers 1-3 are not available).
         let testCases: [(layers: Int, expectedSize: Int)] = [
-            (1, 19),   // 15 + 4 = 19
-            (2, 23),   // 15 + 8 = 23
-            (5, 35),   // 15 + 20 = 35
-            (15, 75),  // 15 + 60 = 75
-            (16, 81),  // 15 + 64 + 2 = 81
-            (30, 137), // 15 + 120 + 2 = 137
-            (31, 143), // 15 + 124 + 4 = 143
-            (32, 147), // 15 + 128 + 4 = 147
+            (4, 31),   // base=30, ref=0, size=31
+            (5, 37),   // base=34, ref=1, size=37
+            (15, 79),  // base=74, ref=2, size=79
+            (16, 83),  // base=78, ref=2, size=83
+            (30, 143), // base=134, ref=4, size=143
+            (31, 147), // base=138, ref=4, size=147
+            (32, 151), // base=142, ref=4, size=151
         ]
 
         for (layers, expectedSize) in testCases {
@@ -241,7 +245,8 @@ struct ReferenceGridTests {
 
     @Test
     func full_symbols_with_many_layers_have_reference_grid() throws {
-        // Layer 16+ should have reference grid lines
+        // Layer 16+ should have reference grid lines.
+        // Full symbols start at layer 4 (layers 1-3 are not available).
         let config = AztecConfiguration(
             isCompact: false,
             layerCount: 20,
@@ -255,8 +260,10 @@ struct ReferenceGridTests {
         let builder = AztecMatrixBuilder(configuration: config)
         let size = builder.symbolSize
 
-        // Size should include reference grid lines
-        // 15 + 4*20 + 2*floor(19/15) = 15 + 80 + 2 = 97
-        #expect(size == 97)
+        // Size formula per ZXing:
+        // baseMatrixSize = 14 + 4 * layers = 14 + 80 = 94
+        // refLines = (baseMatrixSize / 2 - 1) / 15 = (47 - 1) / 15 = 3
+        // symbolSize = baseMatrixSize + 1 + 2 * refLines = 94 + 1 + 6 = 101
+        #expect(size == 101)
     }
 }

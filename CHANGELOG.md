@@ -34,7 +34,7 @@ AztecLib is a pure Swift library for generating Aztec 2D barcodes per ISO/IEC 24
 
 - **Full Aztec Symbol Support**
   - Compact symbols (1-4 layers): 15x15 to 27x27 modules
-  - Full symbols (1-32 layers): 19x19 to 151x151 modules
+  - Full symbols (4-32 layers): 31x31 to 151x151 modules
 
 - **Complete Text Encoding**
   - All five text modes: Upper, Lower, Mixed, Punct, Digit

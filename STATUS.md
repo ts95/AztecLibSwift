@@ -15,7 +15,7 @@ AztecLib is a pure Swift implementation of Aztec 2D barcode encoding per ISO/IEC
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Compact symbols (1-4 layers) | ✅ Complete | 15x15 to 27x27 modules |
-| Full symbols (1-32 layers) | ✅ Complete | 19x19 to 151x151 modules |
+| Full symbols (4-32 layers) | ✅ Complete | 31x31 to 151x151 modules |
 | Text encoding modes | ✅ Complete | Upper, Lower, Mixed, Punct, Digit |
 | Binary/Byte mode | ✅ Complete | Short (1-31 bytes) and long (32+ bytes) forms |
 | Mode transitions | ✅ Complete | Latch and shift with cost-based optimization |
