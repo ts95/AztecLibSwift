@@ -101,7 +101,7 @@ struct AztecDiagnosticTests {
         )
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2
@@ -164,7 +164,7 @@ struct AztecDiagnosticTests {
         )
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2

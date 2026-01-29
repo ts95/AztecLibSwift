@@ -80,7 +80,7 @@ struct AztecMatrixBuilderTests {
         let config = makeCompactConfig(layers: 1)
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2
@@ -95,7 +95,7 @@ struct AztecMatrixBuilderTests {
         let config = makeFullConfig(layers: 1)
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2
@@ -110,7 +110,7 @@ struct AztecMatrixBuilderTests {
         let config = makeCompactConfig(layers: 1)
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2
@@ -165,7 +165,7 @@ struct AztecMatrixBuilderTests {
 
         // Create some test codewords
         let codewords: [UInt16] = [0x15, 0x2A, 0x3F, 0x00, 0x1F]
-        let matrix = builder.buildMatrix(dataCodewords: codewords, modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: codewords, modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         #expect(matrix.bitCount == size * size)
@@ -177,7 +177,7 @@ struct AztecMatrixBuilderTests {
             let config = makeCompactConfig(layers: layers)
             let builder = AztecMatrixBuilder(configuration: config)
             let modeMessage = builder.encodeModeMessage()
-            let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+            let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
             let expectedBits = builder.symbolSize * builder.symbolSize
             #expect(matrix.bitCount == expectedBits)

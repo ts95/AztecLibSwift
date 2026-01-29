@@ -7,6 +7,14 @@
 
 import Foundation
 
+// MARK: - Matrix Builder Errors
+
+/// Errors that can occur during matrix building.
+public enum AztecMatrixBuilderError: Error, Sendable {
+    /// The data path has insufficient capacity for the codewords.
+    case insufficientPathCapacity(needed: Int, available: Int)
+}
+
 // MARK: - Aztec Matrix Builder
 
 /// Builds the Aztec symbol matrix including finder pattern, mode message, reference grid, and data.
@@ -60,7 +68,8 @@ public struct AztecMatrixBuilder: Sendable {
     ///   - dataCodewords: The data codewords (including parity).
     ///   - modeMessageBits: The encoded mode message bits.
     /// - Returns: A `BitBuffer` containing the symbol matrix in row-major order.
-    public func buildMatrix(dataCodewords: [UInt16], modeMessageBits: BitBuffer) -> BitBuffer {
+    /// - Throws: `AztecMatrixBuilderError.insufficientPathCapacity` if the data path cannot fit all codewords.
+    public func buildMatrix(dataCodewords: [UInt16], modeMessageBits: BitBuffer) throws(AztecMatrixBuilderError) -> BitBuffer {
         let size = symbolSize
         var matrix = BitBuffer()
         matrix.reserveCapacity(bitCount: size * size)
@@ -76,7 +85,7 @@ public struct AztecMatrixBuilder: Sendable {
         if hasReferenceGrid {
             drawReferenceGrid(matrix: &matrix, size: size)
         }
-        placeDataCodewords(matrix: &matrix, size: size, codewords: dataCodewords)
+        try placeDataCodewords(matrix: &matrix, size: size, codewords: dataCodewords)
 
         return matrix
     }
@@ -341,7 +350,8 @@ public struct AztecMatrixBuilder: Sendable {
     // MARK: - Data Placement
 
     /// Places data codewords in a counter-clockwise spiral from the finder outward.
-    private func placeDataCodewords(matrix: inout BitBuffer, size: Int, codewords: [UInt16]) {
+    /// - Throws: `AztecMatrixBuilderError.insufficientPathCapacity` if the path cannot fit all codewords.
+    private func placeDataCodewords(matrix: inout BitBuffer, size: Int, codewords: [UInt16]) throws(AztecMatrixBuilderError) {
         let center = size / 2
         let wordSize = configuration.wordSizeInBits
 
@@ -351,17 +361,15 @@ public struct AztecMatrixBuilder: Sendable {
         // Calculate total bits needed
         let totalBitsNeeded = codewords.count * wordSize
 
-        // Validate path has sufficient capacity (assert in debug, silent in release for backwards compatibility)
-        assert(
-            path.count >= totalBitsNeeded,
-            "Data path has insufficient capacity: need \(totalBitsNeeded) positions, have \(path.count)"
-        )
+        // Validate path has sufficient capacity - throw error rather than silently truncating
+        guard path.count >= totalBitsNeeded else {
+            throw AztecMatrixBuilderError.insufficientPathCapacity(needed: totalBitsNeeded, available: path.count)
+        }
 
         // Place codewords along the path
         var pathIndex = 0
         for codeword in codewords {
             for bitPos in stride(from: wordSize - 1, through: 0, by: -1) {
-                guard pathIndex < path.count else { return }
                 let (x, y) = path[pathIndex]
                 let bit = ((codeword >> bitPos) & 1) != 0
                 setModule(matrix: &matrix, size: size, x: x, y: y, value: bit)

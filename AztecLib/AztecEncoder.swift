@@ -47,6 +47,8 @@ public struct AztecEncoder: Sendable {
         case payloadTooLarge(bitCount: Int)
         /// Invalid configuration.
         case invalidConfiguration(String)
+        /// Internal matrix building error.
+        case matrixBuildingFailed(String)
     }
 
     // MARK: - Public API
@@ -165,7 +167,14 @@ public struct AztecEncoder: Sendable {
         // Build configuration from spec
         let availableForParity = spec.totalCodewordCount - dataCodewords.count
         let actualParity = min(availableForParity, max(bestParityCount, Int(ceil(Double(dataCodewords.count) * ecFraction))))
-        let actualDataCodewordCount = spec.totalCodewordCount - actualParity
+        var actualDataCodewordCount = spec.totalCodewordCount - actualParity
+
+        // Compact mode messages have only 6 bits for data codeword count (max 64).
+        // Enforce this limit by increasing parity if needed.
+        if spec.isCompact && actualDataCodewordCount > 64 {
+            actualDataCodewordCount = 64
+        }
+        let finalParity = spec.totalCodewordCount - actualDataCodewordCount
 
         let configuration = AztecConfiguration(
             isCompact: spec.isCompact,
@@ -173,7 +182,7 @@ public struct AztecEncoder: Sendable {
             wordSizeInBits: spec.wordSizeInBits,
             totalCodewordCount: spec.totalCodewordCount,
             dataCodewordCount: actualDataCodewordCount,
-            parityCodewordCount: actualParity,
+            parityCodewordCount: finalParity,
             primitivePolynomial: AztecPrimitivePolynomials.polynomial(forWordSize: spec.wordSizeInBits),
             rsStartExponent: 1
         )
@@ -204,7 +213,15 @@ public struct AztecEncoder: Sendable {
         // Step 4: Build the matrix
         let builder = AztecMatrixBuilder(configuration: configuration)
         let modeMessage = builder.encodeModeMessage()
-        let matrixBits = builder.buildMatrix(dataCodewords: allCodewords, modeMessageBits: modeMessage)
+        let matrixBits: BitBuffer
+        do {
+            matrixBits = try builder.buildMatrix(dataCodewords: allCodewords, modeMessageBits: modeMessage)
+        } catch {
+            switch error {
+            case .insufficientPathCapacity(let needed, let available):
+                throw EncodingError.matrixBuildingFailed("Data path insufficient: need \(needed) positions, have \(available)")
+            }
+        }
 
         // Step 5: Export to symbol
         let symbol = matrixBits.makeSymbolExport(
@@ -325,7 +342,14 @@ extension AztecEncoder {
         // Build configuration from spec
         let availableForParity = spec.totalCodewordCount - dataCodewords.count
         let actualParity = min(availableForParity, max(bestParityCount, Int(ceil(Double(dataCodewords.count) * ecFraction))))
-        let actualDataCodewordCount = spec.totalCodewordCount - actualParity
+        var actualDataCodewordCount = spec.totalCodewordCount - actualParity
+
+        // Compact mode messages have only 6 bits for data codeword count (max 64).
+        // Enforce this limit by increasing parity if needed.
+        if spec.isCompact && actualDataCodewordCount > 64 {
+            actualDataCodewordCount = 64
+        }
+        let finalParity = spec.totalCodewordCount - actualDataCodewordCount
 
         let configuration = AztecConfiguration(
             isCompact: spec.isCompact,
@@ -333,7 +357,7 @@ extension AztecEncoder {
             wordSizeInBits: spec.wordSizeInBits,
             totalCodewordCount: spec.totalCodewordCount,
             dataCodewordCount: actualDataCodewordCount,
-            parityCodewordCount: actualParity,
+            parityCodewordCount: finalParity,
             primitivePolynomial: AztecPrimitivePolynomials.polynomial(forWordSize: spec.wordSizeInBits),
             rsStartExponent: 1
         )
@@ -362,7 +386,15 @@ extension AztecEncoder {
 
         let builder = AztecMatrixBuilder(configuration: configuration)
         let modeMessage = builder.encodeModeMessage()
-        let matrixBits = builder.buildMatrix(dataCodewords: allCodewords, modeMessageBits: modeMessage)
+        let matrixBits: BitBuffer
+        do {
+            matrixBits = try builder.buildMatrix(dataCodewords: allCodewords, modeMessageBits: modeMessage)
+        } catch {
+            switch error {
+            case .insufficientPathCapacity(let needed, let available):
+                throw EncodingError.matrixBuildingFailed("Data path insufficient: need \(needed) positions, have \(available)")
+            }
+        }
 
         let symbol = matrixBits.makeSymbolExport(
             matrixSize: builder.symbolSize,

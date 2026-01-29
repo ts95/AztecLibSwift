@@ -19,7 +19,7 @@ struct FinderPatternTests {
         let config = makeCompactConfig(layers: 1)
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2
@@ -55,7 +55,7 @@ struct FinderPatternTests {
         let config = makeFullConfig(layers: 1)
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2
@@ -84,7 +84,7 @@ struct FinderPatternTests {
         let config = makeCompactConfig(layers: 1)
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
 
         let size = builder.symbolSize
         let center = size / 2

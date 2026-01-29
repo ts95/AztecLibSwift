@@ -251,7 +251,7 @@ struct AztecIntegrationTests {
         // Step 5: Matrix building
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
-        let matrix = builder.buildMatrix(dataCodewords: withParity, modeMessageBits: modeMessage)
+        let matrix = try builder.buildMatrix(dataCodewords: withParity, modeMessageBits: modeMessage)
         #expect(matrix.bitCount == builder.symbolSize * builder.symbolSize)
 
         // Step 6: Export
