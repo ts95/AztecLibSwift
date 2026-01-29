@@ -1,6 +1,6 @@
 # AztecLib Project Status
 
-**Version: 1.0.0**
+**Version: 1.0.1**
 
 This document describes the current implementation status, ISO compliance, and known limitations.
 
@@ -22,7 +22,7 @@ AztecLib is a pure Swift implementation of Aztec 2D barcode encoding per ISO/IEC
 | Reed-Solomon encoding | ✅ Complete | GF(2^6), GF(2^8), GF(2^10), GF(2^12) |
 | Mode message encoding | ✅ Complete | RS-protected nibble encoding |
 | Finder pattern | ✅ Complete | 9x9 (compact) and 13x13 (full) |
-| Reference grid | ✅ Complete | For full symbols with layers ≥ 5 |
+| Reference grid | ✅ Complete | For full symbols with large layer counts |
 | Data placement | ✅ Complete | Clockwise spiral with layer mapping |
 | Codeword stuffing | ✅ Complete | Bit stuffing to avoid all-0/all-1 patterns |
 | Configurable error correction | ✅ Complete | 5-95% error correction percentage |
@@ -114,4 +114,4 @@ The following features are planned for future releases:
 
 ---
 
-*Last updated: January 2026 (v1.0.0)*
+*Last updated: January 2026 (v1.0.1)*

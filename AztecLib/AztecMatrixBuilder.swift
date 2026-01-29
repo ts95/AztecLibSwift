@@ -33,15 +33,19 @@ public struct AztecMatrixBuilder: Sendable {
     /// Calculates the symbol size in modules for the configuration.
     ///
     /// - Compact: size = 11 + 4 * layers
-    /// - Full: size = 15 + 4 * layers + 2 * floor((layers - 1) / 15)
+    /// - Full: size = baseMatrixSize + 1 + 2 * refLines (per ZXing formula)
+    ///   where baseMatrixSize = 14 + 4 * layers
+    ///   and refLines = (baseMatrixSize / 2 - 1) / 15
     public var symbolSize: Int {
         let layers = configuration.layerCount
         if configuration.isCompact {
             return 11 + 4 * layers
         } else {
-            // Full symbols have reference grid lines every 16 modules
-            let refLines = (layers - 1) / 15
-            return 15 + 4 * layers + 2 * refLines
+            // Full symbols: use ZXing's formula to account for reference grid lines
+            // Reference grid lines are inserted every 16 modules from center
+            let baseMatrixSize = 14 + 4 * layers
+            let refLines = (baseMatrixSize / 2 - 1) / 15
+            return baseMatrixSize + 1 + 2 * refLines
         }
     }
 
@@ -51,13 +55,12 @@ public struct AztecMatrixBuilder: Sendable {
     }
 
     /// Returns true if this configuration includes reference grid lines.
-    /// Reference grid lines appear in full symbols with 15 or more layers.
+    /// Reference grid lines appear when (baseMatrixSize / 2 - 1) / 15 > 0.
     public var hasReferenceGrid: Bool {
         guard !configuration.isCompact else { return false }
-        // Reference grid lines are added when (layers - 1) / 15 > 0, i.e., layers >= 16
-        // However, the grid is drawn at multiples of 16 from center when the symbol
-        // is large enough to contain them. For layers 1-14, no reference grid.
-        return (configuration.layerCount - 1) / 15 > 0
+        // Use ZXing's formula to determine reference grid presence
+        let baseMatrixSize = 14 + 4 * configuration.layerCount
+        return (baseMatrixSize / 2 - 1) / 15 > 0
     }
 
     // MARK: - Matrix Building
@@ -250,8 +253,9 @@ public struct AztecMatrixBuilder: Sendable {
 
         // Reference grid spacing is 16 modules from center
         // Lines extend from the edge of the finder to the edge of the symbol
-        // Only draw the actual number of grid line sets for this symbol's layer count
-        let refLineCount = (configuration.layerCount - 1) / 15
+        // Use ZXing's formula for the number of reference grid line sets
+        let baseMatrixSize = 14 + 4 * configuration.layerCount
+        let refLineCount = (baseMatrixSize / 2 - 1) / 15
 
         // Calculate grid line positions (only up to refLineCount sets)
         var gridPositions: [Int] = []
@@ -297,7 +301,8 @@ public struct AztecMatrixBuilder: Sendable {
         guard hasReferenceGrid else { return false }
         let dx = abs(x - center)
         let dy = abs(y - center)
-        let refLineCount = (configuration.layerCount - 1) / 15
+        let baseMatrixSize = 14 + 4 * configuration.layerCount
+        let refLineCount = (baseMatrixSize / 2 - 1) / 15
         let maxGridDistance = refLineCount * 16
         return (dx > 7 && dx % 16 == 0 && dx <= maxGridDistance) || (dy > 7 && dy % 16 == 0 && dy <= maxGridDistance)
     }
@@ -310,6 +315,8 @@ public struct AztecMatrixBuilder: Sendable {
     private func placeDataCodewords(matrix: inout BitBuffer, size: Int, codewords: [UInt16]) throws(AztecMatrixBuilderError) {
         let wordSize = configuration.wordSizeInBits
         let layers = configuration.layerCount
+        // baseMatrixSize matches ZXing's formula - this is the logical data matrix size
+        // Note: Full symbols must have >= 4 layers to avoid mode message overlap
         let baseMatrixSize = configuration.isCompact ? 11 + layers * 4 : 14 + layers * 4
 
         // Build alignment map (identity for compact symbols without reference grid)
@@ -393,40 +400,32 @@ public struct AztecMatrixBuilder: Sendable {
     }
 
     /// Builds the alignment map for coordinate transformation.
-    /// For compact symbols without reference grid, this is identity.
-    /// For full symbols with reference grid, it skips grid line positions.
+    /// For compact symbols, this is identity mapping.
+    /// For full symbols, it skips the center coordinate and reference grid lines (if any).
+    /// This matches ZXing's algorithm for mapping logical data coordinates to matrix positions.
     private func buildAlignmentMap(matrixSize: Int, size: Int) -> [Int] {
-        if configuration.isCompact || !hasReferenceGrid {
-            // Identity mapping for compact symbols
-            return Array(0..<size)
+        if configuration.isCompact {
+            // Identity mapping for compact symbols - size should equal matrixSize
+            return Array(0..<matrixSize)
         }
 
-        // For full symbols with reference grid, skip positions that fall on grid lines
-        var map: [Int] = []
+        // Full symbols: use ZXing's alignment map algorithm
+        // This creates a symmetric mapping around the center that skips:
+        // 1. The center coordinate (part of the finder pattern)
+        // 2. Reference grid lines every 16 positions (for symbols with 16+ layers)
+        var map = [Int](repeating: 0, count: matrixSize)
+        let origCenter = matrixSize / 2
         let center = size / 2
-        var origPos = 0
-        for i in 0..<size {
-            // Check if this position is on a reference grid line
-            let distFromCenter = i - center
-            let refLineCount = (configuration.layerCount - 1) / 15
-            var isGridLine = false
-            for g in 1...refLineCount {
-                if abs(distFromCenter) == g * 16 {
-                    isGridLine = true
-                    break
-                }
-            }
-            if !isGridLine {
-                if map.count <= origPos {
-                    map.append(i)
-                }
-                origPos += 1
-            }
-        }
 
-        // Ensure we have enough entries
-        while map.count < matrixSize {
-            map.append(map.count)
+        for i in 0..<origCenter {
+            // newOffset accounts for reference grid lines every 16 positions
+            let newOffset = i + i / 15
+
+            // Lower half: map coordinates below center
+            map[origCenter - i - 1] = center - newOffset - 1
+
+            // Upper half: map coordinates above center (skip center itself)
+            map[origCenter + i] = center + newOffset + 1
         }
 
         return map
@@ -538,8 +537,8 @@ public struct AztecMatrixBuilder: Sendable {
             let dx = x - center
             let dy = y - center
             // Grid lines at multiples of 16 from center, but only up to the actual number of grid line sets
-            // Layer 16-30: 1 set at ±16, Layer 31-32: 2 sets at ±16 and ±32
-            let refLineCount = (configuration.layerCount - 1) / 15
+            let baseMatrixSize = 14 + 4 * configuration.layerCount
+            let refLineCount = (baseMatrixSize / 2 - 1) / 15
             let maxGridDistance = refLineCount * 16
             if abs(dx) > 7 && abs(dx) % 16 == 0 && abs(dx) <= maxGridDistance { return true }
             if abs(dy) > 7 && abs(dy) % 16 == 0 && abs(dy) <= maxGridDistance { return true }

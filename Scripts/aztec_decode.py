@@ -90,8 +90,7 @@ def decode_aztec(image_path: str, verbose: bool = False) -> dict:
 
         # Try with all formats to see if other barcodes are present
         if verbose:
-            reader_options.formats = zxingcpp.BarcodeFormat.LinearCodes | zxingcpp.BarcodeFormat.MatrixCodes
-            all_barcodes = zxingcpp.read_barcodes(img, reader_options)
+            all_barcodes = zxingcpp.read_barcodes(img)
             if all_barcodes:
                 found_formats = [str(b.format) for b in all_barcodes]
                 print(f"Other barcodes found: {found_formats}", file=sys.stderr)

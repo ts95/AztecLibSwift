@@ -816,6 +816,742 @@ struct AztecDiagnosticValidationTests {
         print("    results = zxingcpp.read_barcodes(img)")
         print("    for r in results: print(r.text)\"")
     }
+
+    @Test
+    func save_multiple_test_images() throws {
+        // Save various configurations for ZXing testing
+        let testCases: [(String, AztecEncoder.Options)] = [
+            ("Hello", AztecEncoder.Options(preferCompact: true)),
+            ("Hello World 123", AztecEncoder.Options(preferCompact: true)),
+            ("ABC123+/xyz", AztecEncoder.Options(preferCompact: true)),
+            ("ManualTest123", AztecEncoder.Options(preferCompact: true)),
+            ("ManualTest123", AztecEncoder.Options(preferCompact: false)),
+        ]
+
+        print("\n=== Saving Multiple Test Images ===")
+        for (payload, options) in testCases {
+            let symbol = try AztecEncoder.encode(payload, options: options)
+            let details = try AztecEncoder.encodeWithDetails(payload, options: options)
+            let compact = details.configuration.isCompact ? "compact" : "full"
+            let filename = "/tmp/aztec_\(compact)_\(symbol.size)x\(symbol.size).png"
+
+            guard let image = renderAztecSymbol(symbol, moduleSize: 10, quietZoneModules: 4) else {
+                print("  FAILED to render \(payload.prefix(20))...")
+                continue
+            }
+
+            let url = URL(fileURLWithPath: filename)
+            if let dest = CGImageDestinationCreateWithURL(url as CFURL, kUTTypePNG, 1, nil) {
+                CGImageDestinationAddImage(dest, image, nil)
+                CGImageDestinationFinalize(dest)
+                print("  \(compact) \(symbol.size)x\(symbol.size) '\(payload.prefix(20))' → \(filename)")
+            }
+        }
+    }
+
+    @Test
+    func test_simple_payloads() throws {
+        // Test progressively larger payloads to find where decoding breaks
+        let testCases = [
+            "Hello",
+            "Hello World",
+            "Hello World 123",
+            String(repeating: "A", count: 50),
+            String(repeating: "A", count: 100),
+            String(repeating: "A", count: 200),
+            String(repeating: "A", count: 300),
+            "ABC123+/xyz",  // Test with + and / characters
+        ]
+
+        print("\n=== Testing Simple Payloads (preferring compact) ===")
+        let options = AztecEncoder.Options(preferCompact: true)  // Changed to prefer compact
+
+        for payload in testCases {
+            let symbol = try AztecEncoder.encode(payload, options: options)
+            let details = try AztecEncoder.encodeWithDetails(payload, options: options)
+
+            guard let image = renderAztecSymbol(symbol, moduleSize: 10, quietZoneModules: 4) else {
+                print("\(payload.prefix(20))...: RENDER FAILED")
+                continue
+            }
+
+            let (decoded, error) = decodeAztecWithVision(image)
+            if let data = decoded, let str = String(data: data, encoding: .isoLatin1), str == payload {
+                print("[\(symbol.size)x\(symbol.size)] \"\(payload.prefix(20))\(payload.count > 20 ? "..." : "")\": ✓")
+            } else {
+                let errMsg = error ?? "mismatch"
+                print("[\(symbol.size)x\(symbol.size)] \"\(payload.prefix(20))\(payload.count > 20 ? "..." : "")\": ✗ (\(errMsg))")
+            }
+        }
+    }
+
+    @Test
+    func compare_hello_with_ciaztec() throws {
+        let payload = "Hello"
+
+        print("\n=== Detailed Hello Comparison ===")
+
+        // AztecLib
+        let options = AztecEncoder.Options(preferCompact: false)
+        let symbol = try AztecEncoder.encode(payload, options: options)
+        let details = try AztecEncoder.encodeWithDetails(payload, options: options)
+
+        print("AztecLib: \(symbol.size)x\(symbol.size), layers=\(details.configuration.layerCount)")
+        print("  Data codewords: \(details.configuration.dataCodewordCount)")
+        print("  Parity codewords: \(details.configuration.parityCodewordCount)")
+        print("  Word size: \(details.configuration.wordSizeInBits) bits")
+
+        // Print AztecLib matrix
+        print("\nAztecLib matrix:")
+        for y in 0..<min(symbol.size, 20) {
+            var row = ""
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print(row)
+        }
+
+        // CIAztec
+        if let payloadData = payload.data(using: .isoLatin1),
+           let ciImage = generateCIAztecCode(data: payloadData, correctionLevel: 23.0) {
+
+            // Get CIAztec dimensions
+            let ciSize = ciImage.width / 10  // We scaled by 10x
+            print("\nCIAztec: \(ciSize)x\(ciSize)")
+
+            // Try to extract CIAztec modules
+            guard let ciData = ciImage.dataProvider?.data,
+                  let ptr = CFDataGetBytePtr(ciData) else {
+                print("Could not read CIAztec image data")
+                return
+            }
+
+            print("\nCIAztec matrix (first rows at module level):")
+            // Sample modules from CIAztec image
+            for y in 0..<min(ciSize, 20) {
+                var row = ""
+                for x in 0..<ciSize {
+                    // Sample center of each module
+                    let px = x * 10 + 5
+                    let py = y * 10 + 5
+                    let offset = (py * ciImage.bytesPerRow + px * 4)
+                    let r = ptr[offset]  // Grayscale, so R=G=B
+                    row += r < 128 ? "█" : "░"
+                }
+                print(row)
+            }
+        }
+
+        // Dump mode message details
+        print("\n--- Mode Message Analysis ---")
+        let builder = AztecMatrixBuilder(configuration: details.configuration)
+        let modeMsg = builder.encodeModeMessage()
+        print("Mode message bits (\(modeMsg.bitCount)): ", terminator: "")
+        for i in 0..<modeMsg.bitCount {
+            let bit = modeMsg.leastSignificantBits(atBitPosition: i, bitCount: 1)
+            print(bit != 0 ? "1" : "0", terminator: "")
+        }
+        print()
+
+        // Extract mode message from the actual matrix
+        print("\n--- Mode Message Placement Verification ---")
+        let symSize = symbol.size
+        let center = symSize / 2
+        print("Symbol size: \(symSize)x\(symSize), center: \(center)")
+
+        // For full symbol, mode message is at distance 7 from center
+        // 10 bits per edge, 40 bits total
+        print("Expected mode message positions (full symbol, d=7):")
+        var extractedBits = ""
+        for i in 0..<10 {
+            let offset = center - 5 + i + i / 5
+            // Top edge
+            let topBit = symbol[x: offset, y: center - 7]
+            extractedBits += topBit ? "1" : "0"
+        }
+        print("  Top edge (y=\(center-7)): \(extractedBits)")
+
+        extractedBits = ""
+        for i in 0..<10 {
+            let offset = center - 5 + i + i / 5
+            let rightBit = symbol[x: center + 7, y: offset]
+            extractedBits += rightBit ? "1" : "0"
+        }
+        print("  Right edge (x=\(center+7)): \(extractedBits)")
+
+        extractedBits = ""
+        for i in 0..<10 {
+            let offset = center - 5 + i + i / 5
+            let bottomBit = symbol[x: offset, y: center + 7]
+            extractedBits += bottomBit ? "1" : "0"
+        }
+        print("  Bottom edge (y=\(center+7)): \(extractedBits)")
+
+        extractedBits = ""
+        for i in 0..<10 {
+            let offset = center - 5 + i + i / 5
+            let leftBit = symbol[x: center - 7, y: offset]
+            extractedBits += leftBit ? "1" : "0"
+        }
+        print("  Left edge (x=\(center-7)): \(extractedBits)")
+
+        // Compare with what should have been placed
+        print("\n--- Expected vs Placed ---")
+        print("Mode bits (raw):      ", terminator: "")
+        for i in 0..<40 {
+            let bit = modeMsg.leastSignificantBits(atBitPosition: i, bitCount: 1)
+            print(bit != 0 ? "1" : "0", terminator: i % 10 == 9 ? " " : "")
+        }
+        print()
+
+        print("Expected top (0-9):   ", terminator: "")
+        for i in 0..<10 {
+            let bit = modeMsg.leastSignificantBits(atBitPosition: i, bitCount: 1)
+            print(bit != 0 ? "1" : "0", terminator: "")
+        }
+        print()
+
+        print("Expected right(10-19):", terminator: "")
+        for i in 0..<10 {
+            let bit = modeMsg.leastSignificantBits(atBitPosition: i + 10, bitCount: 1)
+            print(bit != 0 ? "1" : "0", terminator: "")
+        }
+        print()
+
+        print("Expected bot (29-20): ", terminator: "")
+        for i in 0..<10 {
+            let bit = modeMsg.leastSignificantBits(atBitPosition: 29 - i, bitCount: 1)
+            print(bit != 0 ? "1" : "0", terminator: "")
+        }
+        print()
+
+        print("Expected left(39-30): ", terminator: "")
+        for i in 0..<10 {
+            let bit = modeMsg.leastSignificantBits(atBitPosition: 39 - i, bitCount: 1)
+            print(bit != 0 ? "1" : "0", terminator: "")
+        }
+        print()
+
+        // Check for coordinate overlap between data and mode message
+        print("\n--- Coordinate Overlap Analysis ---")
+        let layers = details.configuration.layerCount  // 1
+        let baseMatrixSize = 14 + layers * 4  // 18
+        print("baseMatrixSize: \(baseMatrixSize), symbolSize: \(symSize)")
+
+        // Mode message positions (full symbol, distance 7)
+        var modeMsgPositions: Set<String> = []
+        for i in 0..<10 {
+            let offset = center - 5 + i + i / 5
+            modeMsgPositions.insert("\(offset),\(center-7)")  // top
+            modeMsgPositions.insert("\(center+7),\(offset)")  // right
+            modeMsgPositions.insert("\(offset),\(center+7)")  // bottom
+            modeMsgPositions.insert("\(center-7),\(offset)")  // left
+        }
+        print("Mode message positions: \(modeMsgPositions.count) modules")
+
+        // Data positions for layer 0
+        var dataPositions: Set<String> = []
+        let rowSize = (layers - 0) * 4 + 12  // 16
+        print("Data layer 0 rowSize: \(rowSize)")
+
+        for j in 0..<rowSize {
+            for k in 0..<2 {
+                // Top side
+                let topX = 0 * 2 + k  // 0 or 1
+                let topY = 0 * 2 + j  // 0..15
+                dataPositions.insert("\(topX),\(topY)")
+
+                // Right side
+                let rightX = 0 * 2 + j  // 0..15
+                let rightY = baseMatrixSize - 1 - 0 * 2 - k  // 17 or 16
+                dataPositions.insert("\(rightX),\(rightY)")
+
+                // Bottom side
+                let botX = baseMatrixSize - 1 - 0 * 2 - k  // 17 or 16
+                let botY = baseMatrixSize - 1 - 0 * 2 - j  // 17..2
+                dataPositions.insert("\(botX),\(botY)")
+
+                // Left side
+                let leftX = baseMatrixSize - 1 - 0 * 2 - j  // 17..2
+                let leftY = 0 * 2 + k  // 0 or 1
+                dataPositions.insert("\(leftX),\(leftY)")
+            }
+        }
+        print("Data positions: \(dataPositions.count) modules")
+
+        let overlap = modeMsgPositions.intersection(dataPositions)
+        if overlap.isEmpty {
+            print("No overlap between data and mode message ✓")
+        } else {
+            print("OVERLAP DETECTED: \(overlap.count) positions!")
+            for pos in overlap.sorted() {
+                print("  \(pos)")
+            }
+        }
+
+        // Decode mode message
+        // Full: 16 data bits (layers-1 in 5 bits, dataWords-1 in 11 bits) + 24 parity = 40 bits
+        // Compact: 8 data bits (layers-1 in 2 bits, dataWords-1 in 6 bits) + 20 parity = 28 bits
+        if !details.configuration.isCompact {
+            // Extract nibbles
+            let nibbles = modeMsg.makeMostSignificantNibblesByUnpacking(nibbleCount: 10)
+            let dataWord = (UInt16(nibbles[0]) << 12) | (UInt16(nibbles[1]) << 8) | (UInt16(nibbles[2]) << 4) | UInt16(nibbles[3])
+            let decodedLayers = ((dataWord >> 11) & 0x1F) + 1
+            let decodedDataWords = (dataWord & 0x7FF) + 1
+            print("Full mode message: layers=\(decodedLayers), dataWords=\(decodedDataWords)")
+            print("  Expected: layers=\(details.configuration.layerCount), dataWords=\(details.configuration.dataCodewordCount)")
+        }
+
+        // Save images
+        if let aztecImage = renderAztecSymbol(symbol, moduleSize: 10, quietZoneModules: 4) {
+            let url = URL(fileURLWithPath: "/tmp/hello_azteclib.png")
+            if let dest = CGImageDestinationCreateWithURL(url as CFURL, kUTTypePNG, 1, nil) {
+                CGImageDestinationAddImage(dest, aztecImage, nil)
+                CGImageDestinationFinalize(dest)
+                print("\nSaved AztecLib to: \(url.path)")
+            }
+        }
+
+        if let payloadData = payload.data(using: .isoLatin1),
+           let ciImage = generateCIAztecCode(data: payloadData, correctionLevel: 23.0) {
+            let url = URL(fileURLWithPath: "/tmp/hello_ciaztec.png")
+            if let dest = CGImageDestinationCreateWithURL(url as CFURL, kUTTypePNG, 1, nil) {
+                CGImageDestinationAddImage(dest, ciImage, nil)
+                CGImageDestinationFinalize(dest)
+                print("Saved CIAztec to: \(url.path)")
+            }
+        }
+    }
+
+    @Test
+    func debug_punct_mismatch() throws {
+        // Debug the "ABC123+/xyz" mismatch issue
+        let payload = "ABC123+/xyz"
+
+        print("\n=== Debug Punctuation Mismatch ===")
+
+        let options = AztecEncoder.Options(preferCompact: true)
+        let symbol = try AztecEncoder.encode(payload, options: options)
+        let details = try AztecEncoder.encodeWithDetails(payload, options: options)
+
+        print("Payload: \"\(payload)\"")
+        print("AztecLib: \(symbol.size)x\(symbol.size), compact=\(details.configuration.isCompact), layers=\(details.configuration.layerCount)")
+        print("Data codewords: \(details.configuration.dataCodewordCount)")
+        print("Parity codewords: \(details.configuration.parityCodewordCount)")
+
+        // Render and decode
+        guard let image = renderAztecSymbol(symbol, moduleSize: 10, quietZoneModules: 4) else {
+            Issue.record("Failed to render image")
+            return
+        }
+
+        let (decoded, error) = decodeAztecWithVision(image)
+        if let data = decoded {
+            let str = String(data: data, encoding: .isoLatin1) ?? "(decode failed)"
+            print("Vision decoded: \"\(str)\"")
+            print("Expected:       \"\(payload)\"")
+            print("Match: \(str == payload ? "✓" : "✗")")
+
+            // Compare character by character
+            if str != payload {
+                print("\nCharacter comparison:")
+                let maxLen = max(str.count, payload.count)
+                for i in 0..<maxLen {
+                    let strChar = i < str.count ? str[str.index(str.startIndex, offsetBy: i)] : Character("_")
+                    let payloadChar = i < payload.count ? payload[payload.index(payload.startIndex, offsetBy: i)] : Character("_")
+                    let match = strChar == payloadChar ? "✓" : "✗"
+                    print("  [\(i)] '\(strChar)' vs '\(payloadChar)' \(match)")
+                }
+            }
+        } else {
+            print("Vision failed: \(error ?? "unknown")")
+        }
+
+        // Save for ZXing analysis
+        let url = URL(fileURLWithPath: "/tmp/azteclib_punct.png")
+        if let dest = CGImageDestinationCreateWithURL(url as CFURL, kUTTypePNG, 1, nil) {
+            CGImageDestinationAddImage(dest, image, nil)
+            CGImageDestinationFinalize(dest)
+            print("\nSaved AztecLib to: \(url.path)")
+        }
+
+        // Generate CIAztec for comparison
+        guard let payloadData = payload.data(using: .isoLatin1),
+              let filter = CIFilter(name: "CIAztecCodeGenerator") else {
+            print("CIAztec filter not available")
+            return
+        }
+        filter.setValue(payloadData, forKey: "inputMessage")
+        filter.setValue(Float(23.0), forKey: "inputCorrectionLevel")
+        filter.setValue(Float(1.0), forKey: "inputCompactStyle")  // Force compact
+
+        guard let ciOutput = filter.outputImage else {
+            print("CIAztec filter returned nil")
+            return
+        }
+
+        let ciContext = CIContext()
+        guard let ciImage = ciContext.createCGImage(ciOutput, from: ciOutput.extent) else {
+            print("Failed to create CGImage from CIFilter")
+            return
+        }
+
+        print("CIAztec: \(ciImage.width)x\(ciImage.height)")
+
+        // Scale up and decode CIAztec
+        if let ciScaled = scaleImage(ciImage, factor: 10) {
+            let (ciDecoded, ciError) = decodeAztecWithVision(ciScaled)
+            if let data = ciDecoded {
+                let str = String(data: data, encoding: .isoLatin1) ?? "(decode failed)"
+                print("CIAztec  → Vision: \"\(str)\"")
+            } else {
+                print("CIAztec  → Vision: FAILED - \(ciError ?? "unknown")")
+            }
+
+            let ciUrl = URL(fileURLWithPath: "/tmp/ciaztec_punct.png")
+            if let dest = CGImageDestinationCreateWithURL(ciUrl as CFURL, kUTTypePNG, 1, nil) {
+                CGImageDestinationAddImage(dest, ciScaled, nil)
+                CGImageDestinationFinalize(dest)
+                print("Saved CIAztec to: \(ciUrl.path)")
+            }
+        }
+
+        // Module-by-module comparison
+        print("\n--- Module Comparison ---")
+        guard let ciData = ciImage.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(ciData) else {
+            print("Could not read CIAztec image data")
+            return
+        }
+
+        let compareSize = min(symbol.size, ciImage.width)
+        var differences = 0
+        for y in 0..<compareSize {
+            var row = ""
+            for x in 0..<compareSize {
+                let aztecModule = symbol[x: x, y: y]
+                // CIAztec: 1 pixel = 1 module, RGBA format
+                let offset = y * ciImage.bytesPerRow + x * 4
+                let ciModule = ptr[offset] < 128
+                if aztecModule != ciModule {
+                    differences += 1
+                    row += "X"
+                } else {
+                    row += aztecModule ? "█" : "░"
+                }
+            }
+            print("Row \(String(format: "%2d", y)): \(row)")
+        }
+        print("\nTotal differences: \(differences) modules")
+    }
+
+    @Test
+    func compare_hello_modules() throws {
+        // Compare "Hello" encoding between AztecLib and CIAztec
+        let payload = "Hello"
+
+        print("\n=== Module Comparison for 'Hello' ===")
+
+        let options = AztecEncoder.Options(preferCompact: true)
+        let symbol = try AztecEncoder.encode(payload, options: options)
+
+        print("AztecLib: \(symbol.size)x\(symbol.size)")
+
+        // Generate CIAztec
+        guard let payloadData = payload.data(using: .isoLatin1),
+              let filter = CIFilter(name: "CIAztecCodeGenerator") else {
+            print("CIAztec filter not available")
+            return
+        }
+        filter.setValue(payloadData, forKey: "inputMessage")
+        filter.setValue(Float(23.0), forKey: "inputCorrectionLevel")
+        filter.setValue(Float(1.0), forKey: "inputCompactStyle")
+
+        guard let ciOutput = filter.outputImage else {
+            print("CIAztec filter returned nil")
+            return
+        }
+
+        let ciContext = CIContext()
+        guard let ciImage = ciContext.createCGImage(ciOutput, from: ciOutput.extent) else {
+            print("Failed to create CGImage from CIFilter")
+            return
+        }
+
+        print("CIAztec: \(ciImage.width)x\(ciImage.height)")
+
+        if ciImage.width != symbol.size {
+            print("DIFFERENT SIZES - cannot compare")
+            return
+        }
+
+        // Module-by-module comparison
+        guard let ciData = ciImage.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(ciData) else {
+            print("Could not read CIAztec image data")
+            return
+        }
+
+        var differences = 0
+        for y in 0..<symbol.size {
+            var row = ""
+            for x in 0..<symbol.size {
+                let aztecModule = symbol[x: x, y: y]
+                let offset = y * ciImage.bytesPerRow + x * 4
+                let ciModule = ptr[offset] < 128
+                if aztecModule != ciModule {
+                    differences += 1
+                    row += "X"
+                } else {
+                    row += aztecModule ? "█" : "░"
+                }
+            }
+            print("Row \(String(format: "%2d", y)): \(row)")
+        }
+
+        print("\nTotal differences: \(differences) modules")
+
+        if differences == 0 {
+            print("PERFECT MATCH! ✓")
+        }
+    }
+
+    @Test
+    func compare_compact_layer_3_with_ciaztec() throws {
+        // 50 'A's should result in compact layer 3 (23x23)
+        let payload = String(repeating: "A", count: 50)
+
+        print("\n=== Compact Layer 3 Comparison (50 'A's) ===")
+
+        // AztecLib
+        let options = AztecEncoder.Options(preferCompact: true)
+        let details = try AztecEncoder.encodeWithDetails(payload, options: options)
+        let symbol = details.symbol
+
+        print("AztecLib: \(symbol.size)x\(symbol.size), compact=\(details.configuration.isCompact), layers=\(details.configuration.layerCount)")
+        #expect(details.configuration.isCompact == true)
+        #expect(details.configuration.layerCount == 3)
+        #expect(symbol.size == 23)
+
+        // CIAztec with compact style forced
+        guard let payloadData = payload.data(using: .isoLatin1) else {
+            Issue.record("Failed to convert payload to data")
+            return
+        }
+
+        guard let filter = CIFilter(name: "CIAztecCodeGenerator") else {
+            Issue.record("CIAztecCodeGenerator not available")
+            return
+        }
+        filter.setValue(payloadData, forKey: "inputMessage")
+        filter.setValue(Float(23.0), forKey: "inputCorrectionLevel")
+        filter.setValue(Float(1.0), forKey: "inputCompactStyle")  // Force compact
+
+        guard let ciOutput = filter.outputImage else {
+            Issue.record("CIAztec filter returned nil")
+            return
+        }
+
+        let ciContext = CIContext()
+        guard let ciImage = ciContext.createCGImage(ciOutput, from: ciOutput.extent) else {
+            Issue.record("Failed to create CGImage from CIFilter")
+            return
+        }
+
+        let ciSize = ciImage.width
+        print("CIAztec:  \(ciSize)x\(ciSize)")
+
+        // Extract modules from CIAztec (1 pixel = 1 module at this scale)
+        guard let ciData = ciImage.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(ciData) else {
+            Issue.record("Could not read CIAztec image data")
+            return
+        }
+
+        print("\n--- Module-by-Module Comparison ---")
+        var differences = 0
+        let compareSize = min(symbol.size, ciSize)
+
+        for y in 0..<compareSize {
+            var diffRow = ""
+            for x in 0..<compareSize {
+                let aztecModule = symbol[x: x, y: y]
+
+                // CIAztec: grayscale, so just check red channel
+                let offset = y * ciImage.bytesPerRow + x * 4
+                let ciModule = ptr[offset] < 128  // dark = true
+
+                if aztecModule != ciModule {
+                    differences += 1
+                    diffRow += "X"
+                } else {
+                    diffRow += aztecModule ? "█" : "░"
+                }
+            }
+            if y < 25 {  // Print first 25 rows
+                print("Row \(String(format: "%2d", y)): \(diffRow)")
+            }
+        }
+
+        print("\nTotal differences: \(differences) out of \(compareSize * compareSize) modules")
+
+        // Render and decode AztecLib
+        guard let aztecImage = renderAztecSymbol(symbol, moduleSize: 10, quietZoneModules: 4) else {
+            Issue.record("Failed to render AztecLib image")
+            return
+        }
+
+        let (aztecDecoded, aztecError) = decodeAztecWithVision(aztecImage)
+        if let data = aztecDecoded, let str = String(data: data, encoding: .isoLatin1) {
+            print("AztecLib → Vision: \"\(str.prefix(20))...\" (\(str.count) chars)")
+            print("Match: \(str == payload ? "✓" : "✗")")
+        } else {
+            print("AztecLib → Vision: FAILED - \(aztecError ?? "unknown")")
+        }
+
+        // Scale up CIAztec for Vision
+        let ciScaled = scaleImage(ciImage, factor: 10)!
+        let (ciDecoded, ciError) = decodeAztecWithVision(ciScaled)
+        if let data = ciDecoded, let str = String(data: data, encoding: .isoLatin1) {
+            print("CIAztec  → Vision: \"\(str.prefix(20))...\" (\(str.count) chars)")
+            print("Match: \(str == payload ? "✓" : "✗")")
+        } else {
+            print("CIAztec  → Vision: FAILED - \(ciError ?? "unknown")")
+        }
+
+        // Save images
+        let aztecURL = URL(fileURLWithPath: "/tmp/azteclib_compact3.png")
+        let ciURL = URL(fileURLWithPath: "/tmp/ciaztec_compact3.png")
+
+        if let dest = CGImageDestinationCreateWithURL(aztecURL as CFURL, kUTTypePNG, 1, nil) {
+            CGImageDestinationAddImage(dest, aztecImage, nil)
+            CGImageDestinationFinalize(dest)
+            print("\nSaved AztecLib to: \(aztecURL.path)")
+        }
+
+        if let dest = CGImageDestinationCreateWithURL(ciURL as CFURL, kUTTypePNG, 1, nil) {
+            CGImageDestinationAddImage(dest, ciScaled, nil)
+            CGImageDestinationFinalize(dest)
+            print("Saved CIAztec to: \(ciURL.path)")
+        }
+    }
+
+    @Test
+    func test_problematic_base64_payload() throws {
+        // This is the payload that fails - a 488 char Base64 string
+        let payload = "CpwCCpkCCpYCCiQ3ZjY1ZmE0Mi04Y2FjLTQ3ZjQtYjEyYy1jNDNlNWUzM2JjNjISDAii6u3LBhD3zZCJAhrcAQoEDAMFCBIYCAESFG5vLnJ1dGVyLlJlaXNlLnN0YWdlEggIAxIEMjYuMBIICAQSBDI2LjASCQgFEgVBcHBsZRIJCAYSBWFybTY0ElgIBxJUUlVUOkN1c3RvbWVyQWNjb3VudDpkMGM4NThiYzE1OTBjODU1ODY0OGFhMTc1ZDA0ZDA3Y2RiNWI1MjMzZmRmMDY0M2FhOGM0ZTQ4YWJlYjFkYjcyEgsICRIHMTYuMTAuMBIPCAoSC0RFVkVMT1BNRU5UEg4ICxIKNDkyR0ZKMzZYVhIICAwSBDExMzUiAQQSTQpGMEQCIEWzEVp6lv2LpiMmy8/D1Pf0EMwMQPnUSz1MMjt2XW5fAiBdy+2YP2NsCM3l7eNunSn7ziHxhmJkzQZSLEcZFLnNUxoBTjAB"
+
+        print("\n=== Testing Problematic Base64 Payload ===")
+        print("Payload length: \(payload.count) chars")
+
+        // Test data encoding
+        let dataBits = AztecDataEncoder.encode(payload)
+        print("Data bits from string encode: \(dataBits.bitCount)")
+
+        // Compare with byte mode
+        let byteData = Array(payload.utf8)
+        let byteBits = AztecDataEncoder.encode(byteData)
+        print("Data bits from byte encode: \(byteBits.bitCount)")
+        print("UTF-8 byte count: \(byteData.count)")
+
+        // Check codeword packing for different word sizes
+        print("\nCodeword packing analysis:")
+        for wordSize in [8, 10, 12] {
+            let codewords = dataBits.makeCodewords(codewordBitWidth: wordSize)
+            let effectiveDataBits = codewords.count * (wordSize - 1)
+            print("  \(wordSize)-bit: \(codewords.count) codewords = ~\(effectiveDataBits) data bits (need \(dataBits.bitCount))")
+        }
+
+        // What does CIAztec use? 83x83 = 17 layers (full), 10-bit codewords, 652 total
+        print("\nCIAztec comparison (17 layers, 10-bit codewords, 652 total):")
+        print("  If using byte mode: \(byteData.count) * 8 + header = ~\(byteData.count * 8 + 16) bits")
+        let byteCodewords = byteBits.makeCodewords(codewordBitWidth: 10)
+        print("  Byte mode codewords: \(byteCodewords.count)")
+
+        // Encode with AztecLib
+        let options = AztecEncoder.Options(preferCompact: false)
+        let details = try AztecEncoder.encodeWithDetails(payload, options: options)
+        let symbol = details.symbol
+
+        print("AztecLib config: \(symbol.size)x\(symbol.size), compact=\(details.configuration.isCompact), layers=\(details.configuration.layerCount)")
+        print("Word size: \(details.configuration.wordSizeInBits) bits")
+        print("Data codewords: \(details.configuration.dataCodewordCount)")
+        print("Parity codewords: \(details.configuration.parityCodewordCount)")
+        print("Total codewords: \(details.configuration.totalCodewordCount)")
+
+        // Render and try to decode with Vision
+        guard let aztecLibImage = renderAztecSymbol(symbol, moduleSize: 10, quietZoneModules: 4) else {
+            Issue.record("Failed to render AztecLib image")
+            return
+        }
+
+        let (aztecDecoded, aztecError) = decodeAztecWithVision(aztecLibImage)
+        if let data = aztecDecoded, let str = String(data: data, encoding: .isoLatin1) {
+            print("AztecLib → Vision: \"\(str.prefix(50))...\" (\(str.count) chars)")
+            print("Match: \(str == payload ? "✓" : "✗")")
+        } else {
+            print("AztecLib → Vision: FAILED - \(aztecError ?? "unknown")")
+        }
+
+        // Generate with CIAztec for comparison
+        guard let payloadData = payload.data(using: .isoLatin1),
+              let ciImage = generateCIAztecCode(data: payloadData, correctionLevel: 23.0) else {
+            Issue.record("Failed to generate CIAztec image")
+            return
+        }
+
+        // Get CIAztec dimensions (approximate from image)
+        let ciModuleSize = ciImage.width / 10  // Since we scaled by 10x
+        print("CIAztec image: \(ciImage.width/10)x\(ciImage.height/10) modules (approx)")
+
+        let (ciDecoded, ciError) = decodeAztecWithVision(ciImage)
+        if let data = ciDecoded, let str = String(data: data, encoding: .isoLatin1) {
+            print("CIAztec  → Vision: \"\(str.prefix(50))...\" (\(str.count) chars)")
+            print("Match: \(str == payload ? "✓" : "✗")")
+        } else {
+            print("CIAztec  → Vision: FAILED - \(ciError ?? "unknown")")
+        }
+
+        // Also test with byte-mode encoding to see if that works
+        print("\n--- Testing with byte-mode encoding ---")
+        let byteOptions = AztecEncoder.Options(preferCompact: false)
+        let byteSymbol = try AztecEncoder.encode(byteData, options: byteOptions)
+        let byteDetails = try AztecEncoder.encodeWithDetails(byteData, options: byteOptions)
+        print("Byte mode config: \(byteSymbol.size)x\(byteSymbol.size), layers=\(byteDetails.configuration.layerCount)")
+        print("Data codewords: \(byteDetails.configuration.dataCodewordCount)")
+
+        if let byteImage = renderAztecSymbol(byteSymbol, moduleSize: 10, quietZoneModules: 4) {
+            let (byteDecoded, byteError) = decodeAztecWithVision(byteImage)
+            if let data = byteDecoded, let str = String(data: data, encoding: .isoLatin1) {
+                print("Byte mode → Vision: Match=\(str == payload ? "✓" : "✗") (\(str.count) chars)")
+            } else {
+                print("Byte mode → Vision: FAILED - \(byteError ?? "unknown")")
+            }
+            // Save byte mode image too
+            let byteURL = URL(fileURLWithPath: "/tmp/azteclib_bytemode.png")
+            if let dest = CGImageDestinationCreateWithURL(byteURL as CFURL, kUTTypePNG, 1, nil) {
+                CGImageDestinationAddImage(dest, byteImage, nil)
+                CGImageDestinationFinalize(dest)
+                print("Saved byte mode image to: \(byteURL.path)")
+            }
+        }
+
+        // Save images for external analysis
+        let aztecLibURL = URL(fileURLWithPath: "/tmp/azteclib_base64.png")
+        let ciURL = URL(fileURLWithPath: "/tmp/ciaztec_base64.png")
+
+        if let aztecLibDest = CGImageDestinationCreateWithURL(aztecLibURL as CFURL, kUTTypePNG, 1, nil) {
+            CGImageDestinationAddImage(aztecLibDest, aztecLibImage, nil)
+            CGImageDestinationFinalize(aztecLibDest)
+            print("\nSaved AztecLib image to: \(aztecLibURL.path)")
+        }
+
+        if let ciDest = CGImageDestinationCreateWithURL(ciURL as CFURL, kUTTypePNG, 1, nil) {
+            CGImageDestinationAddImage(ciDest, ciImage, nil)
+            CGImageDestinationFinalize(ciDest)
+            print("Saved CIAztec image to: \(ciURL.path)")
+        }
+    }
 }
 
 // MARK: - Large Scale Validation

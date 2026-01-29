@@ -871,7 +871,8 @@ struct DataPlacementPreconditionTests {
         // Verify that full symbols with reference grids (layers >= 16) work correctly
         // after the fix to isReservedPosition that limits grid lines to actual count
         for layers in [16, 20, 31, 32] {
-            let spec = fullSymbolSpecs[layers - 1]
+            // Note: fullSymbolSpecs starts at layer 4 (index 0), so use layers - 4
+            let spec = fullSymbolSpecs[layers - 4]
 
             let config = AztecConfiguration(
                 isCompact: false,

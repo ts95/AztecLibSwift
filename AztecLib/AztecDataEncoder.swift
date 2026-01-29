@@ -186,7 +186,8 @@ internal struct AztecModeTransitions: Sendable {
         ],
         .digit: [
             .upper: (14, 4),  // U/L
-            .punct: (15, 4),  // U/S then P/L (special handling)
+            // Note: No direct latch from Digit to Punct. Must go via Upper→Mixed→Punct.
+            // The switch case in appendModeSwitch handles this.
         ],
     ]
 
@@ -444,6 +445,11 @@ public struct AztecDataEncoder: Sendable {
                     // D -> U/L -> M/L
                     buffer.appendBitsMSBFirst(14, bitCount: 4) // U/L
                     buffer.appendBitsMSBFirst(29, bitCount: 5) // M/L
+                case (.digit, .punct):
+                    // D -> U/L -> M/L -> P/L (14 bits total per ZXing)
+                    buffer.appendBitsMSBFirst(14, bitCount: 4) // U/L
+                    buffer.appendBitsMSBFirst(29, bitCount: 5) // M/L
+                    buffer.appendBitsMSBFirst(30, bitCount: 5) // P/L
                 default:
                     break
                 }

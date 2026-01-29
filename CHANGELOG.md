@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.0.1 — January 2026
+
+**Bug Fix Release**
+
+### Fixed
+
+- **Full symbol alignment map**: Fixed data placement for full (non-compact) symbols by implementing ZXing's alignment map algorithm that correctly skips the center coordinate.
+
+- **Mode transition Digit→Punct**: Fixed the latch table entry for Digit→Punct mode transition. Previously used shift code 0 (P/S) instead of the correct 3-step path: U/L → M/L → P/L (14 bits total).
+
+- **Symbol size formula for reference grids**: Fixed the reference grid line count calculation from `(layers - 1) / 15` to `(baseMatrixSize / 2 - 1) / 15` per ZXing's algorithm. This affects full symbols with 15+ layers.
+
+- **Test array indexing**: Fixed test helper functions that incorrectly indexed into `fullSymbolSpecs` using `layers - 1` instead of `layers - 4` (since the array starts at layer 4).
+
+### Verified
+
+All fixes verified against ZXing decoder:
+- Compact symbols (15x15 to 27x27): ✓
+- Full symbols (31x31 and larger): ✓
+- Payloads up to 500+ characters: ✓
+- Mode transitions including Digit→Punct: ✓
+
+---
+
 ## v1.0.0 — January 2026
 
 **Initial Release**

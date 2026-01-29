@@ -52,7 +52,7 @@ struct FinderPatternTests {
     @Test
     func full_finder_pattern_structure() throws {
         // Full symbols have a 13x13 finder pattern (radius 6 from center)
-        let config = makeFullConfig(layers: 1)
+        let config = makeFullConfig(layers: 4)  // Minimum valid layer for full symbols
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
         let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
@@ -122,7 +122,9 @@ struct FinderPatternTests {
     }
 
     private func makeFullConfig(layers: Int) -> AztecConfiguration {
-        let spec = fullSymbolSpecs[layers - 1]
+        // Note: fullSymbolSpecs starts at layer 4 (index 0), so use layers - 4
+        precondition(layers >= 4, "Full symbols must have at least 4 layers")
+        let spec = fullSymbolSpecs[layers - 4]
         return AztecConfiguration(
             isCompact: false,
             layerCount: layers,

@@ -391,19 +391,14 @@ struct AztecDiagnosticTests {
         // Trace the encoding of "Hello"
         print("\n========== HELLO ENCODING TRACE ==========")
 
-        let dataBits = AztecDataEncoder.encode("Hello")
-        print("Data bits count: \(dataBits.bitCount)")
-        print("Data bits: ", terminator: "")
-        for i in 0..<dataBits.bitCount {
-            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
-        }
-        print()
+        let input = "Hello"
+        let options = AztecEncoder.Options(preferCompact: true)
+        let details = try AztecEncoder.encodeWithDetails(input, options: options)
+        let config = details.configuration
 
-        let config = try pickConfiguration(
-            forPayloadBitCount: dataBits.bitCount,
-            errorCorrectionPercentage: 23,
-            preferCompact: true
-        )
+        let dataBits = AztecDataEncoder.encode(input)
+        print("Data bits count: \(dataBits.bitCount)")
+
         print("\nConfiguration:")
         print("  compact: \(config.isCompact)")
         print("  layers: \(config.layerCount)")
@@ -418,6 +413,25 @@ struct AztecDiagnosticTests {
         let rs = ReedSolomonEncoder(field: gf, startExponent: config.rsStartExponent)
         let allCodewords = rs.appendingParity(to: codewords, parityCodewordCount: config.parityCodewordCount)
         print("All codewords (with RS): \(allCodewords)")
+
+        // Verify RS syndromes
+        print("\nRS Verification:")
+        var syndromeOK = true
+        for i in 0..<config.parityCodewordCount {
+            var syndrome: UInt16 = 0
+            for (j, cw) in allCodewords.enumerated() {
+                let power = (config.rsStartExponent + i) * j
+                let alpha_power = gf.exp[power % (gf.exp.count / 2)]
+                syndrome = gf.add(syndrome, gf.multiply(cw, alpha_power))
+            }
+            if syndrome != 0 {
+                print("  Syndrome[\(i)] = \(syndrome) (should be 0) ✗")
+                syndromeOK = false
+            }
+        }
+        if syndromeOK {
+            print("  All syndromes are zero ✓")
+        }
 
         #expect(true)
     }
@@ -755,5 +769,468 @@ struct AztecDiagnosticTests {
         print("  Total: 15 bits")
 
         #expect(dataBits.bitCount == 15)
+    }
+
+    @Test
+    func full_trace_punct_encoding() throws {
+        // Full pipeline trace for "ABC123+/xyz"
+        let input = "ABC123+/xyz"
+        print("\n========== FULL PIPELINE TRACE ==========")
+        print("Input: \"\(input)\"")
+
+        // Use the actual encoder to get all details
+        let options = AztecEncoder.Options(preferCompact: true)
+        let details = try AztecEncoder.encodeWithDetails(input, options: options)
+        let symbol = details.symbol
+        let config = details.configuration
+
+        print("\n1. Configuration:")
+        print("  compact: \(config.isCompact)")
+        print("  layers: \(config.layerCount)")
+        print("  wordSize: \(config.wordSizeInBits)")
+        print("  dataCodewords: \(config.dataCodewordCount)")
+        print("  parityCodewords: \(config.parityCodewordCount)")
+        print("  totalCodewords: \(config.totalCodewordCount)")
+        print("  symbolSize: \(symbol.size)x\(symbol.size)")
+
+        // Trace mode message
+        let builder = AztecMatrixBuilder(configuration: config)
+        let modeMsg = builder.encodeModeMessage()
+        print("\n2. Mode message (\(modeMsg.bitCount) bits):")
+        var modeBits = ""
+        for i in 0..<modeMsg.bitCount {
+            modeBits += modeMsg.leastSignificantBits(atBitPosition: i, bitCount: 1) != 0 ? "1" : "0"
+        }
+        print("  Bits: \(modeBits)")
+        // Decode mode message
+        let layers = (modeMsg.leastSignificantBits(atBitPosition: 0, bitCount: 2) + 1)
+        let dataWords = modeMsg.leastSignificantBits(atBitPosition: 2, bitCount: 6) + 1
+        print("  Decoded: layers=\(layers), dataWords=\(dataWords)")
+        print("  Expected: layers=\(config.layerCount), dataWords=\(config.dataCodewordCount)")
+
+        // Get the actual data bits
+        let dataBits = AztecDataEncoder.encode(input)
+        print("\n3. Data encoding:")
+        print("  Data bits: \(dataBits.bitCount)")
+
+        // Get the packed codewords
+        let packedCodewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("\n4. Codewords (before RS):")
+        print("  Count: \(packedCodewords.count)")
+        for (i, cw) in packedCodewords.enumerated() {
+            let binary = String(cw, radix: 2)
+            let padded = String(repeating: "0", count: config.wordSizeInBits - binary.count) + binary
+            print("  [\(i)] \(cw) = \(padded)")
+        }
+
+        // RS encoding
+        let gf = GaloisField(wordSizeInBits: config.wordSizeInBits, primitivePolynomial: config.primitivePolynomial)
+        let rs = ReedSolomonEncoder(field: gf, startExponent: config.rsStartExponent)
+        let allCodewords = rs.appendingParity(to: packedCodewords, parityCodewordCount: config.parityCodewordCount)
+        print("\n5. All codewords (with RS parity):")
+        print("  Count: \(allCodewords.count)")
+        for (i, cw) in allCodewords.enumerated() {
+            let binary = String(cw, radix: 2)
+            let padded = String(repeating: "0", count: config.wordSizeInBits - binary.count) + binary
+            let label = i < packedCodewords.count ? "data" : "parity"
+            print("  [\(i)] \(cw) = \(padded) (\(label))")
+        }
+
+        // Print symbol
+        print("\n6. Generated symbol:")
+        for y in 0..<symbol.size {
+            var row = "  "
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print(row)
+        }
+
+        // Extract first few bits from symbol using ZXing's inverse algorithm
+        print("\n7. Verify data placement:")
+        let size = symbol.size
+        let numLayers = config.layerCount
+        let baseMatrixSize = 11 + numLayers * 4  // 15 for layer 1
+
+        // Build alignment map (identity for compact)
+        let alignmentMap = Array(0..<size)
+
+        // Extract first bits from layer 0 TOP side
+        print("  Extracting first 12 bits from TOP side of layer 0:")
+        let rowSize = numLayers * 4 + 9  // 13 for layer 1
+        var extractedBits: [Bool] = []
+        for j in 0..<6 {  // First 6 positions
+            for k in 0..<2 {
+                let x = alignmentMap[0 * 2 + k]
+                let y = alignmentMap[0 * 2 + j]
+                let bit = symbol[x: x, y: y]
+                extractedBits.append(bit)
+                print("    j=\(j) k=\(k): (\(x),\(y)) = \(bit ? "1" : "0")")
+            }
+        }
+
+        // Compare with expected message bits
+        print("\n  Expected message bits (first 12):")
+        var messageBits: [Bool] = []
+        // startPad zeros
+        let totalBitsInLayer = ((config.isCompact ? 88 : 112) + 16 * numLayers) * numLayers
+        let startPad = totalBitsInLayer % config.wordSizeInBits
+        for _ in 0..<startPad {
+            messageBits.append(false)
+        }
+        // Codeword bits MSB first
+        for cw in allCodewords {
+            for bitPos in stride(from: config.wordSizeInBits - 1, through: 0, by: -1) {
+                messageBits.append(((cw >> bitPos) & 1) != 0)
+            }
+        }
+        for i in 0..<12 {
+            print("    [\(i)]: \(messageBits[i] ? "1" : "0")")
+        }
+
+        // Compare
+        print("\n  Comparison:")
+        var matches = 0
+        for i in 0..<min(extractedBits.count, 12) {
+            let match = extractedBits[i] == messageBits[i]
+            print("    [\(i)]: extracted=\(extractedBits[i] ? "1" : "0"), expected=\(messageBits[i] ? "1" : "0") \(match ? "✓" : "✗")")
+            if match { matches += 1 }
+        }
+        print("  Matches: \(matches)/12")
+
+        #expect(symbol.size > 0)
+    }
+
+    @Test
+    func trace_punct_encoding() throws {
+        // Detailed trace of "ABC123+/xyz" encoding
+        let input = "ABC123+/xyz"
+        print("\n========== PUNCT ENCODING TRACE ==========")
+        print("Input: \"\(input)\"")
+
+        // Show what modes each character should use
+        print("\nCharacter modes:")
+        for char in input {
+            var modes: [(mode: AztecMode, code: Int)] = []
+            for mode in [AztecMode.upper, .lower, .mixed, .punct, .digit] {
+                if let code = AztecModeTables.code(for: char, in: mode) {
+                    modes.append((mode, code))
+                }
+            }
+            print("  '\(char)': \(modes.map { "\($0.mode): \($0.code)" }.joined(separator: ", "))")
+        }
+
+        // Encode
+        let dataBits = AztecDataEncoder.encode(input)
+        print("\nData bits count: \(dataBits.bitCount)")
+
+        // Print bits with groupings
+        print("Data bits (binary):")
+        var bitString = ""
+        for i in 0..<dataBits.bitCount {
+            let bit = dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1)
+            bitString += bit != 0 ? "1" : "0"
+        }
+        print(bitString)
+
+        // Expected encoding:
+        // A=2(5b), B=3(5b), C=4(5b): 00010 00011 00100 = 15 bits
+        // D/L=30(5b): 11110 = 5 bits
+        // 1=3(4b), 2=4(4b), 3=5(4b): 0011 0100 0101 = 12 bits
+        // P/L=0(4b): 0000 = 4 bits
+        // +=16(5b): 10000 = 5 bits
+        // /=20(5b): 10100 = 5 bits
+        // Then Lower: U/L=31(5b), L/L=28(5b): 11111 11100 = 10 bits
+        // x=25(5b), y=26(5b), z=27(5b): 11001 11010 11011 = 15 bits
+        // Total: 15+5+12+4+5+5+10+15 = 71 bits
+
+        print("\nExpected encoding breakdown:")
+        print("  A=2, B=3, C=4 in Upper (5-bit each): 00010 00011 00100 (15 bits)")
+        print("  D/L from Upper to Digit = 30: 11110 (5 bits)")
+        print("  1=3, 2=4, 3=5 in Digit (4-bit each): 0011 0100 0101 (12 bits)")
+        print("  P/L from Digit to Punct = 0: 0000 (4 bits)")
+        print("  +=16 in Punct (5-bit): 10000 (5 bits)")
+        print("  /=20 in Punct (5-bit): 10100 (5 bits)")
+        print("  U/L from Punct to Upper = 31: 11111 (5 bits)")
+        print("  L/L from Upper to Lower = 28: 11100 (5 bits)")
+        print("  x=25, y=26, z=27 in Lower (5-bit each): 11001 11010 11011 (15 bits)")
+        print("  Expected total: 71 bits")
+
+        print("\nActual vs expected:")
+        let expected = "000100001100100" + "11110" + "001101000101" + "0000" + "10000" + "10100" + "11111" + "11100" + "110011101011011"
+        print("Expected: \(expected) (\(expected.count) bits)")
+        print("Actual:   \(bitString) (\(bitString.count) bits)")
+
+        if bitString == expected {
+            print("MATCH ✓")
+        } else {
+            print("MISMATCH ✗")
+            // Find first difference
+            for (i, (e, a)) in zip(expected, bitString).enumerated() {
+                if e != a {
+                    print("First difference at bit \(i): expected '\(e)', got '\(a)'")
+                    break
+                }
+            }
+        }
+
+        // Now trace through codeword stuffing
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("\nConfiguration:")
+        print("  compact: \(config.isCompact)")
+        print("  layers: \(config.layerCount)")
+        print("  wordSize: \(config.wordSizeInBits)")
+        print("  dataCodewords: \(config.dataCodewordCount)")
+        print("  parityCodewords: \(config.parityCodewordCount)")
+
+        let codewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("\nCodewords (with stuff bits): \(codewords.count) codewords")
+        for (i, cw) in codewords.enumerated() {
+            let binary = String(cw, radix: 2)
+            let padded = String(repeating: "0", count: config.wordSizeInBits - binary.count) + binary
+            print("  [\(i)] \(cw) = \(padded)")
+        }
+
+        // Check if we can reconstruct the original bits from codewords
+        print("\nReconstruct from codewords (accounting for stuff bits):")
+        let mask = (1 << config.wordSizeInBits) - 2  // e.g., 0b111110 for w=6
+        var reconstructed = ""
+        for cw in codewords {
+            let upperBits = Int(cw) & mask
+            let isStuffed = (upperBits == 0) || (upperBits == mask)
+            // For stuffed codewords, LSB is the stuff bit - skip it
+            // For normal codewords, all bits are data
+            let minBit = isStuffed ? 1 : 0
+            for bitPos in stride(from: config.wordSizeInBits - 1, through: minBit, by: -1) {
+                let bit = (Int(cw) >> bitPos) & 1
+                reconstructed += bit == 1 ? "1" : "0"
+            }
+        }
+        print("  Reconstructed: \(reconstructed.prefix(dataBits.bitCount))")
+        print("  Original:      \(bitString)")
+        if String(reconstructed.prefix(dataBits.bitCount)) == bitString {
+            print("  MATCH ✓")
+        } else {
+            print("  MISMATCH ✗")
+            // Find first difference
+            let orig = Array(bitString)
+            let recon = Array(reconstructed.prefix(dataBits.bitCount))
+            for (i, (o, r)) in zip(orig, recon).enumerated() {
+                if o != r {
+                    print("  First diff at bit \(i): expected '\(o)', got '\(r)'")
+                    break
+                }
+            }
+        }
+
+        #expect(dataBits.bitCount > 0)
+    }
+
+    @Test
+    func diagnose_compact_layer_3() throws {
+        // Diagnose why compact layer 3 (23x23) fails
+        let input = String(repeating: "A", count: 50)
+        print("\n========== COMPACT LAYER 3 DIAGNOSTIC ==========")
+        print("Input: 50 'A's")
+
+        // Step 1: Data encoding
+        let dataBits = AztecDataEncoder.encode(input)
+        print("\n1. Data encoding:")
+        print("   Bit count: \(dataBits.bitCount)")
+        print("   Expected: 50 * 5 = 250 bits")
+
+        // Step 2: Configuration
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("\n2. Configuration:")
+        print("   Compact: \(config.isCompact)")
+        print("   Layers: \(config.layerCount)")
+        print("   Word size: \(config.wordSizeInBits)")
+        print("   Data codewords: \(config.dataCodewordCount)")
+        print("   Parity codewords: \(config.parityCodewordCount)")
+        print("   Total codewords: \(config.totalCodewordCount)")
+
+        // Verify we get compact layer 3
+        #expect(config.isCompact == true)
+        #expect(config.layerCount == 3)
+
+        // Step 3: Calculate expected symbol geometry
+        let symbolSize = 11 + 4 * config.layerCount  // 23 for layer 3
+        let center = symbolSize / 2  // 11
+        print("\n3. Symbol geometry:")
+        print("   Symbol size: \(symbolSize)x\(symbolSize)")
+        print("   Center: \(center)")
+        print("   Finder pattern: 9x9 (radius 4)")
+        print("   Mode message at radius 5")
+        print("   Data starts at radius 6")
+
+        // Step 4: Check data placement coordinates
+        let baseMatrixSize = 11 + config.layerCount * 4  // 23
+        print("\n4. Data placement analysis:")
+        print("   baseMatrixSize: \(baseMatrixSize)")
+
+        // Trace innermost layer placement (layer index 2, closest to center)
+        // For compact layer 3, layer i=2 is the innermost
+        // rowSize = (3-2)*4 + 9 = 13
+        let innerRowSize = (config.layerCount - (config.layerCount - 1)) * 4 + 9
+        print("   Innermost layer (i=\(config.layerCount-1)): rowSize = \(innerRowSize)")
+
+        // Calculate x and y coordinates for innermost layer's TOP side
+        print("\n   Innermost layer TOP side coordinates:")
+        let i = config.layerCount - 1  // 2 for layer 3
+        for j in 0..<min(innerRowSize, 5) {
+            for k in 0..<2 {
+                let x = i * 2 + k  // alignmentMap[i*2+k]
+                let y = i * 2 + j  // alignmentMap[i*2+j]
+                print("     j=\(j) k=\(k): x=\(x), y=\(y)")
+            }
+        }
+
+        // Check if any data positions overlap with finder/mode message
+        print("\n   Checking for overlaps:")
+        print("     Finder area: (\(center-4), \(center-4)) to (\(center+4), \(center+4)) = (7,7) to (15,15)")
+        print("     Mode message at y=\(center-5)=\(center-5) and y=\(center+5)=\(center+5)")
+
+        // Check innermost layer positions
+        let innermostX = [i*2, i*2+1]  // x=4,5 for layer 3
+        let innermostY = (0..<innerRowSize).map { i*2 + $0 }  // y=4 to 4+12=16
+        print("     Innermost layer x values: \(innermostX)")
+        print("     Innermost layer y values (TOP side): \(innermostY)")
+        print("     Does innermost layer TOP overlap finder (y from 7-15)? \(innermostY.contains(where: { $0 >= 7 && $0 <= 15 }) ? "YES" : "NO")")
+
+        // Step 5: Encode and output the symbol
+        let symbol = try AztecEncoder.encode(input)
+        print("\n5. Generated symbol (\(symbol.size)x\(symbol.size)):")
+        for y in 0..<symbol.size {
+            var row = "Row \(String(format: "%2d", y)): "
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print(row)
+        }
+
+        // Step 6: Highlight specific areas
+        print("\n6. Region analysis:")
+        print("   Center row (y=\(center)):")
+        var centerRow = "   "
+        for x in 0..<symbol.size {
+            centerRow += symbol[x: x, y: center] ? "█" : "░"
+        }
+        print(centerRow)
+
+        // Check the mode message area
+        print("\n   Mode message top (y=\(center-5)=\(center-5)):")
+        var modeTop = "   "
+        for x in 0..<symbol.size {
+            modeTop += symbol[x: x, y: center-5] ? "█" : "░"
+        }
+        print(modeTop)
+
+        #expect(symbol.size == 23)
+    }
+
+    @Test
+    func diagnose_full_symbol_structure() throws {
+        // Diagnose full (non-compact) symbol to find why ZXing can't decode it
+        let input = "Test"
+        print("\n========== FULL SYMBOL DIAGNOSIS ==========")
+        print("Input: \"\(input)\"")
+
+        // Force non-compact mode
+        let options = AztecEncoder.Options(preferCompact: false)
+        let symbol = try AztecEncoder.encode(input, options: options)
+        let details = try AztecEncoder.encodeWithDetails(input, options: options)
+
+        print("\nConfiguration:")
+        print("  compact: \(details.configuration.isCompact)")
+        print("  layers: \(details.configuration.layerCount)")
+        print("  wordSize: \(details.configuration.wordSizeInBits)")
+        print("  dataCodewords: \(details.configuration.dataCodewordCount)")
+        print("  parityCodewords: \(details.configuration.parityCodewordCount)")
+        print("  symbol size: \(symbol.size)x\(symbol.size)")
+
+        let center = symbol.size / 2
+        print("\nFinder pattern (center=\(center), radius=6 for full):")
+        print("  Expected bulls-eye with 7 concentric rings (radius 0-6)")
+
+        // Print center area
+        print("\n  Center 15x15 area:")
+        for y in (center - 7)...(center + 7) {
+            var row = "  "
+            for x in (center - 7)...(center + 7) {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print(row)
+        }
+
+        // Verify bulls-eye pattern
+        print("\n  Verifying bulls-eye (Chebyshev distance from center):")
+        var finderOK = true
+        for dist in 0...6 {
+            // Check modules at this distance
+            let expectedBlack = (dist % 2 == 0)
+            // Check all modules at exactly this Chebyshev distance
+            for y in (center - dist)...(center + dist) {
+                for x in (center - dist)...(center + dist) {
+                    let actualDist = max(abs(x - center), abs(y - center))
+                    if actualDist == dist {
+                        let actual = symbol[x: x, y: y]
+                        if actual != expectedBlack {
+                            print("  ✗ Module (\(x), \(y)) at dist \(dist): expected \(expectedBlack), got \(actual)")
+                            finderOK = false
+                        }
+                    }
+                }
+            }
+        }
+        if finderOK {
+            print("  Bulls-eye pattern verified ✓")
+        }
+
+        // Check orientation marks (distance 7 from center)
+        print("\n  Orientation marks (at distance 7 from center):")
+        let d = 7
+        let orientationMarks = [
+            // Top-left corner: 3 marks forming an L
+            (center - d, center - d),
+            (center - d + 1, center - d),
+            (center - d, center - d + 1),
+            // Top-right corner: 2 vertical marks
+            (center + d, center - d),
+            (center + d, center - d + 1),
+            // Bottom-right corner: 1 mark
+            (center + d, center + d - 1),
+        ]
+        for (x, y) in orientationMarks {
+            let actual = symbol[x: x, y: y]
+            print("  (\(x), \(y)): \(actual ? "█" : "░") (should be █)")
+        }
+
+        // Check mode message area (at distance 7 from center)
+        print("\n  Mode message row (y = center-7 = \(center - 7)):")
+        var modeRow = "  "
+        for x in 0..<symbol.size {
+            modeRow += symbol[x: x, y: center - 7] ? "█" : "░"
+        }
+        print(modeRow)
+
+        // Print entire symbol
+        print("\n  Full symbol:")
+        for y in 0..<symbol.size {
+            var row = "  Row \(String(format: "%2d", y)): "
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print(row)
+        }
+
+        #expect(details.configuration.isCompact == false)
     }
 }

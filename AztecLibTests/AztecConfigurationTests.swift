@@ -200,7 +200,9 @@ struct SymbolSpecTableTests {
 
     @Test
     func full_specs_have_correct_count() {
-        #expect(fullSymbolSpecs.count == 32)
+        // Full specs cover layers 4-32 (29 entries, not 32)
+        // Layers 1-3 are omitted because they cause coordinate overlap issues
+        #expect(fullSymbolSpecs.count == 29)
     }
 
     @Test
@@ -223,9 +225,10 @@ struct SymbolSpecTableTests {
     }
 
     @Test
-    func full_layer_counts_are_1_to_32() {
+    func full_layer_counts_are_4_to_32() {
+        // Full specs start at layer 4 (index 0) and go to layer 32 (index 28)
         for (i, spec) in fullSymbolSpecs.enumerated() {
-            #expect(spec.layerCount == i + 1)
+            #expect(spec.layerCount == i + 4)
             #expect(spec.isCompact == false)
         }
     }

@@ -52,7 +52,30 @@ The library follows a 6-step pipeline (see `AztecEncoder.swift:93-143`):
 ### Symbol Types
 
 - **Compact symbols**: 1-4 layers, 15x15 to 27x27 modules, 9x9 finder pattern
-- **Full symbols**: 1-32 layers, 19x19 to 151x151 modules, 13x13 finder pattern
+- **Full symbols**: 4-32 layers, 31x31 to 151x151 modules, 13x13 finder pattern
+  - Note: `fullSymbolSpecs` array starts at layer 4 (index 0), not layer 1
+
+### Critical ZXing-Compatible Formulas (AztecMatrixBuilder.swift)
+
+These formulas must match ZXing's implementation for correct encoding:
+
+```swift
+// Symbol size for full symbols
+let baseMatrixSize = 14 + 4 * layers
+let refLines = (baseMatrixSize / 2 - 1) / 15
+let symbolSize = baseMatrixSize + 1 + 2 * refLines
+
+// Alignment map for data placement (full symbols)
+// Maps logical data coordinates to physical matrix coordinates
+// Skips center coordinate and reference grid lines
+let origCenter = baseMatrixSize / 2
+let center = symbolSize / 2
+for i in 0..<origCenter {
+    let newOffset = i + i / 15  // Adds gap for ref grid lines
+    alignmentMap[origCenter - i - 1] = center - newOffset - 1
+    alignmentMap[origCenter + i] = center + newOffset + 1
+}
+```
 
 ### Primitive Polynomials (AztecConfiguration.swift:50-68)
 
@@ -213,4 +236,28 @@ let binaryVectors = generateBinaryTestVectors(count: 15, maxLength: 100)
 // Edge cases (null bytes, repeated patterns, mode switching)
 let edgeCases = generateEdgeCaseVectors()
 ```
+
+## ZXing Reference Implementation
+
+When debugging encoding issues, always compare against ZXing's reference implementation:
+
+- **Java**: https://github.com/zxing/zxing/blob/master/core/src/main/java/com/google/zxing/aztec/encoder/
+- **Key files**: `Encoder.java`, `HighLevelEncoder.java`
+
+### Common Pitfalls
+
+1. **Mode transitions**: The latch/shift tables must exactly match ZXing's `LATCH_TABLE` and `SHIFT_TABLE`. Pay special attention to multi-step transitions (e.g., Digit→Punct requires U/L→M/L→P/L, not a direct code).
+
+2. **Alignment map**: For full symbols, data placement coordinates must skip the center and reference grid lines. Use ZXing's formula with `i + i / 15` offset.
+
+3. **Symbol size**: Reference grid line count is `(baseMatrixSize / 2 - 1) / 15`, NOT `(layers - 1) / 15`.
+
+4. **Array indexing**: `fullSymbolSpecs` starts at layer 4 (index 0), so use `layers - 4` not `layers - 1`.
+
+### Vision Framework Limitations
+
+Apple's Vision framework cannot decode all Aztec symbols that ZXing can:
+- Compact 23x23 (layer 3) often fails
+- Larger full symbols (39x39+) often fail
+- Use ZXing for authoritative decode verification
 

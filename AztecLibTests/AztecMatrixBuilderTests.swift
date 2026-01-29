@@ -92,7 +92,7 @@ struct AztecMatrixBuilderTests {
 
     @Test
     func full_finder_is_13x13() throws {
-        let config = makeFullConfig(layers: 1)
+        let config = makeFullConfig(layers: 4)  // Minimum valid layer for full symbols
         let builder = AztecMatrixBuilder(configuration: config)
         let modeMessage = builder.encodeModeMessage()
         let matrix = try builder.buildMatrix(dataCodewords: [], modeMessageBits: modeMessage)
@@ -201,7 +201,9 @@ struct AztecMatrixBuilderTests {
     }
 
     private func makeFullConfig(layers: Int) -> AztecConfiguration {
-        let spec = fullSymbolSpecs[layers - 1]
+        // Note: fullSymbolSpecs starts at layer 4 (index 0), so use layers - 4
+        precondition(layers >= 4, "Full symbols must have at least 4 layers")
+        let spec = fullSymbolSpecs[layers - 4]
         return AztecConfiguration(
             isCompact: false,
             layerCount: layers,

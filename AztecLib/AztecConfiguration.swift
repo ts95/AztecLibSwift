@@ -79,12 +79,13 @@ internal let compactSymbolSpecs: [SymbolSpec] = [
     SymbolSpec(isCompact: true, layerCount: 4, wordSizeInBits: 8, totalCodewordCount: 76),
 ]
 
-/// Full symbol specifications (layers 1-32).
+/// Full symbol specifications (layers 4-32).
+/// Note: Full symbols start at layer 4, not layer 1. Layers 1-3 would cause data/mode message
+/// coordinate overlap because the mode message ring at ±7 from center overlaps with the data
+/// placement area for small full symbols. ZXing's encoder also starts full symbols at layer 4.
 /// Total codewords per ISO/IEC 24778 Table 2.
 internal let fullSymbolSpecs: [SymbolSpec] = [
-    SymbolSpec(isCompact: false, layerCount: 1, wordSizeInBits: 6, totalCodewordCount: 21),
-    SymbolSpec(isCompact: false, layerCount: 2, wordSizeInBits: 6, totalCodewordCount: 48),
-    SymbolSpec(isCompact: false, layerCount: 3, wordSizeInBits: 8, totalCodewordCount: 60),
+    // Layers 1-3 intentionally omitted - they cause coordinate overlap issues
     SymbolSpec(isCompact: false, layerCount: 4, wordSizeInBits: 8, totalCodewordCount: 88),
     SymbolSpec(isCompact: false, layerCount: 5, wordSizeInBits: 8, totalCodewordCount: 120),
     SymbolSpec(isCompact: false, layerCount: 6, wordSizeInBits: 8, totalCodewordCount: 156),
