@@ -3,6 +3,9 @@
 
 import PackageDescription
 
+/// The current version of AztecLib
+let version = Version(1, 0, 0)
+
 let package = Package(
     name: "AztecLib",
     platforms: [

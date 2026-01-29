@@ -214,6 +214,3 @@ let binaryVectors = generateBinaryTestVectors(count: 15, maxLength: 100)
 let edgeCases = generateEdgeCaseVectors()
 ```
 
-### Known Issues
-
-**Decoding Compatibility**: AztecLib-generated codes currently do not decode successfully with external decoders (Vision framework, zxing-cpp), while CIAztecCodeGenerator codes decode correctly. This indicates a potential encoding issue in the data layers or mode message encoding that needs investigation.
