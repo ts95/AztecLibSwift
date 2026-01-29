@@ -295,6 +295,210 @@ struct AztecDiagnosticTests {
     }
 
     @Test
+    func output_single_char_format() throws {
+        // Output AztecLib barcode in single-character format for comparison with ZXing
+        let symbol = try AztecEncoder.encode("A")
+
+        print("\n========== SINGLE-CHAR FORMAT (for Python comparison) ==========")
+        print("azteclib_rows = [")
+        for y in 0..<symbol.size {
+            var row = ""
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print("    \"\(row)\",")
+        }
+        print("]")
+
+        #expect(symbol.size > 0)
+    }
+
+    @Test
+    func output_hello_format() throws {
+        // Output AztecLib barcode for "Hello"
+        let symbol = try AztecEncoder.encode("Hello")
+
+        print("\n========== HELLO FORMAT (for Python comparison) ==========")
+        print("AztecLib matrix (\(symbol.size)x\(symbol.size)):")
+        for y in 0..<symbol.size {
+            var row = ""
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print(row)
+        }
+
+        #expect(symbol.size > 0)
+    }
+
+    @Test
+    func output_123_format() throws {
+        // Output AztecLib barcode for "123"
+        let symbol = try AztecEncoder.encode("123")
+
+        print("\n========== 123 FORMAT (for Python comparison) ==========")
+        print("azteclib_123_rows = [")
+        for y in 0..<symbol.size {
+            var row = ""
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "█" : "░"
+            }
+            print("    \"\(row)\",")
+        }
+        print("]")
+
+        #expect(symbol.size > 0)
+    }
+
+    @Test
+    func trace_123_encoding() throws {
+        // Trace the encoding of "123"
+        print("\n========== 123 ENCODING TRACE ==========")
+
+        let dataBits = AztecDataEncoder.encode("123")
+        print("Data bits count: \(dataBits.bitCount)")
+        print("Data bits: ", terminator: "")
+        for i in 0..<dataBits.bitCount {
+            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+        }
+        print()
+
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("\nConfiguration:")
+        print("  compact: \(config.isCompact)")
+        print("  layers: \(config.layerCount)")
+        print("  wordSize: \(config.wordSizeInBits)")
+        print("  dataCodewords: \(config.dataCodewordCount)")
+        print("  parityCodewords: \(config.parityCodewordCount)")
+
+        let codewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("\nData codewords: \(codewords)")
+
+        let gf = GaloisField(wordSizeInBits: config.wordSizeInBits, primitivePolynomial: config.primitivePolynomial)
+        let rs = ReedSolomonEncoder(field: gf, startExponent: config.rsStartExponent)
+        let allCodewords = rs.appendingParity(to: codewords, parityCodewordCount: config.parityCodewordCount)
+        print("All codewords (with RS): \(allCodewords)")
+
+        #expect(true)
+    }
+
+    @Test
+    func trace_hello_encoding() throws {
+        // Trace the encoding of "Hello"
+        print("\n========== HELLO ENCODING TRACE ==========")
+
+        let dataBits = AztecDataEncoder.encode("Hello")
+        print("Data bits count: \(dataBits.bitCount)")
+        print("Data bits: ", terminator: "")
+        for i in 0..<dataBits.bitCount {
+            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+        }
+        print()
+
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("\nConfiguration:")
+        print("  compact: \(config.isCompact)")
+        print("  layers: \(config.layerCount)")
+        print("  wordSize: \(config.wordSizeInBits)")
+        print("  dataCodewords: \(config.dataCodewordCount)")
+        print("  parityCodewords: \(config.parityCodewordCount)")
+
+        let codewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("\nData codewords: \(codewords)")
+
+        let gf = GaloisField(wordSizeInBits: config.wordSizeInBits, primitivePolynomial: config.primitivePolynomial)
+        let rs = ReedSolomonEncoder(field: gf, startExponent: config.rsStartExponent)
+        let allCodewords = rs.appendingParity(to: codewords, parityCodewordCount: config.parityCodewordCount)
+        print("All codewords (with RS): \(allCodewords)")
+
+        #expect(true)
+    }
+
+    @Test
+    func trace_data_placement() throws {
+        // Trace the exact data placement to compare with ZXing
+        print("\n========== DATA PLACEMENT TRACE ==========")
+
+        // Encode "A"
+        let dataBits = AztecDataEncoder.encode("A")
+        print("Input 'A' encoded to \(dataBits.bitCount) bits")
+
+        // Get configuration
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("Configuration: compact=\(config.isCompact), layers=\(config.layerCount), wordSize=\(config.wordSizeInBits)")
+
+        // Pack into codewords
+        let codewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("Data codewords (before RS): \(codewords)")
+
+        // Pad and add RS parity
+        var paddedCodewords = codewords
+        while paddedCodewords.count < config.dataCodewordCount {
+            paddedCodewords.append(0)
+        }
+        let gf = GaloisField(wordSizeInBits: config.wordSizeInBits, primitivePolynomial: config.primitivePolynomial)
+        let rs = ReedSolomonEncoder(field: gf, startExponent: config.rsStartExponent)
+        let allCodewords = rs.appendingParity(to: paddedCodewords, parityCodewordCount: config.parityCodewordCount)
+        print("All codewords (with RS): \(allCodewords)")
+
+        // Calculate startPad
+        let totalBitsInLayer = ((config.isCompact ? 88 : 112) + 16 * config.layerCount) * config.layerCount
+        let startPad = totalBitsInLayer % config.wordSizeInBits
+        print("totalBitsInLayer = \(totalBitsInLayer), startPad = \(startPad)")
+
+        // Build messageBits like ZXing
+        var messageBits: [Bool] = []
+        for _ in 0..<startPad {
+            messageBits.append(false)
+        }
+        for codeword in allCodewords {
+            for bitPos in stride(from: config.wordSizeInBits - 1, through: 0, by: -1) {
+                messageBits.append(((codeword >> bitPos) & 1) != 0)
+            }
+        }
+        print("messageBits count = \(messageBits.count)")
+
+        // Print first 26 message bits (first TOP side bits)
+        print("\nFirst 26 messageBits:")
+        for i in 0..<min(26, messageBits.count) {
+            print("  [\(String(format: "%2d", i))]: \(messageBits[i] ? "1" : "0")")
+        }
+
+        // Trace first few placements
+        let layers = config.layerCount
+        let baseMatrixSize = 11 + layers * 4  // 15 for L1
+        let rowSize = layers * 4 + 9  // 13 for L1
+
+        print("\nData placement trace (first 12 TOP bits):")
+        print("rowSize = \(rowSize), baseMatrixSize = \(baseMatrixSize)")
+        var rowOffset = 0
+        for j in 0..<6 {
+            let columnOffset = j * 2
+            for k in 0..<2 {
+                let bitIdx = rowOffset + columnOffset + k
+                let x = k  // alignmentMap[0*2+k] = k for compact
+                let y = j  // alignmentMap[0*2+j] = j for compact
+                let bit = messageBits[bitIdx]
+                print("  TOP: j=\(j) k=\(k) bitIdx=\(bitIdx) -> (\(x),\(y)) = \(bit ? "1" : "0")")
+            }
+        }
+
+        #expect(true)
+    }
+
+    @Test
     func full_encoding_trace() throws {
         // Trace through the complete encoding pipeline
         print("\n========== FULL ENCODING TRACE ==========")
@@ -361,5 +565,195 @@ struct AztecDiagnosticTests {
         print("   Total bytes: \(symbol.bytes.count)")
 
         #expect(symbol.size > 0)
+    }
+
+    @Test
+    func trace_mixed_content_encoding() throws {
+        // Trace the encoding of "Mixed123Content!@#" to debug the punctuation issue
+        let input = "Mixed123Content!@#"
+        print("\n========== MIXED CONTENT ENCODING TRACE ==========")
+        print("Input: \"\(input)\"")
+
+        // Trace character by character what modes are used
+        print("\nCharacter analysis:")
+        for char in input {
+            let modes: [AztecMode] = [.upper, .lower, .mixed, .punct, .digit]
+            var foundModes: [(AztecMode, Int)] = []
+            for mode in modes {
+                if let code = AztecModeTables.code(for: char, in: mode) {
+                    foundModes.append((mode, code))
+                }
+            }
+            print("  '\(char)': \(foundModes.map { "\($0.0): \($0.1)" }.joined(separator: ", "))")
+        }
+
+        // Encode
+        let dataBits = AztecDataEncoder.encode(input)
+        print("\nData bits count: \(dataBits.bitCount)")
+        print("Data bits: ", terminator: "")
+        for i in 0..<dataBits.bitCount {
+            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+        }
+        print()
+
+        // Get configuration
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("\nConfiguration:")
+        print("  compact: \(config.isCompact)")
+        print("  layers: \(config.layerCount)")
+        print("  wordSize: \(config.wordSizeInBits)")
+        print("  dataCodewords: \(config.dataCodewordCount)")
+        print("  parityCodewords: \(config.parityCodewordCount)")
+
+        let codewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("\nData codewords count: \(codewords.count)")
+        print("Data codewords: \(codewords)")
+
+        // Also print the final symbol as binary for comparison
+        let symbol = try AztecEncoder.encode(input)
+        print("\nAztecLib matrix (19x19):")
+        for y in 0..<symbol.size {
+            var row = "Row \(String(format: "%2d", y)): "
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "1" : "0"
+            }
+            print(row)
+        }
+
+        #expect(true)
+    }
+
+    @Test
+    func trace_simple_punct() throws {
+        // Test just "!" encoding
+        let input = "A!"
+        print("\n========== A! ENCODING TRACE ==========")
+        print("Input: \"\(input)\"")
+
+        let dataBits = AztecDataEncoder.encode(input)
+        print("Data bits count: \(dataBits.bitCount)")
+        print("Data bits: ", terminator: "")
+        for i in 0..<dataBits.bitCount {
+            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+        }
+        print()
+
+        // A in Upper = code 2 (5 bits: 00010)
+        // P/S from Upper = code 0 (5 bits: 00000)
+        // ! in Punct = code 6 (5 bits: 00110)
+        // Total: 15 bits
+        print("\nExpected:")
+        print("  A: code 2 = 00010 (5 bits)")
+        print("  P/S: code 0 = 00000 (5 bits)")
+        print("  !: code 6 = 00110 (5 bits)")
+        print("  Total: 15 bits")
+
+        #expect(dataBits.bitCount == 15)
+    }
+
+    @Test
+    func trace_binary_encoding() throws {
+        // Test binary encoding for 5 bytes
+        let bytes: [UInt8] = [0x01, 0x02, 0x03, 0x04, 0x05]
+        print("\n========== BINARY ENCODING TRACE ==========")
+        print("Input: \(bytes)")
+
+        let dataBits = AztecDataEncoder.encode(bytes)
+        print("Data bits count: \(dataBits.bitCount)")
+        print("Data bits: ", terminator: "")
+        for i in 0..<dataBits.bitCount {
+            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+        }
+        print()
+
+        // Expected: B/S (5 bits, code 31) + length (5 bits, value 5) + 5*8 bits = 50 bits
+        print("\nExpected:")
+        print("  B/S: 11111 (5 bits, code 31)")
+        print("  Length: 00101 (5 bits, value 5)")
+        print("  Bytes: 0x01=00000001, 0x02=00000010, etc.")
+        print("  Total: 50 bits")
+
+        let config = try pickConfiguration(
+            forPayloadBitCount: dataBits.bitCount,
+            errorCorrectionPercentage: 23,
+            preferCompact: true
+        )
+        print("\nConfiguration:")
+        print("  compact: \(config.isCompact)")
+        print("  layers: \(config.layerCount)")
+        print("  wordSize: \(config.wordSizeInBits)")
+        print("  dataCodewords: \(config.dataCodewordCount)")
+        print("  parityCodewords: \(config.parityCodewordCount)")
+
+        let codewords = dataBits.makeCodewords(codewordBitWidth: config.wordSizeInBits)
+        print("\nCodewords (with stuff bits): \(codewords)")
+
+        let gf = GaloisField(wordSizeInBits: config.wordSizeInBits, primitivePolynomial: config.primitivePolynomial)
+        let rs = ReedSolomonEncoder(field: gf, startExponent: config.rsStartExponent)
+
+        var paddedCodewords = codewords
+        let filler = BitBuffer.makeFillerCodeword(bitWidth: config.wordSizeInBits)
+        while paddedCodewords.count < config.dataCodewordCount {
+            paddedCodewords.append(filler)
+        }
+        print("Padded codewords: \(paddedCodewords)")
+
+        let allCodewords = rs.appendingParity(to: paddedCodewords, parityCodewordCount: config.parityCodewordCount)
+        print("All codewords (with RS parity): \(allCodewords)")
+
+        // Check mode message
+        let builder = AztecMatrixBuilder(configuration: config)
+        let modeMessage = builder.encodeModeMessage()
+        print("\nMode message (\(modeMessage.bitCount) bits): ", terminator: "")
+        for i in 0..<modeMessage.bitCount {
+            print(modeMessage.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+            if (i + 1) % 4 == 0 { print(" ", terminator: "") }
+        }
+        print()
+        print("Expected: (layers-1)=0 (2 bits), (data-1)=9 (6 bits) = 00001001, then RS parity")
+
+        let symbol = try AztecEncoder.encode(bytes)
+        print("\nAztecLib matrix (\(symbol.size)x\(symbol.size)):")
+        for y in 0..<symbol.size {
+            var row = ""
+            for x in 0..<symbol.size {
+                row += symbol[x: x, y: y] ? "1" : "0"
+            }
+            print(row)
+        }
+
+        #expect(symbol.size == 15, "Expected 15x15 symbol for 5 bytes")
+    }
+
+    @Test
+    func trace_at_encoding() throws {
+        // Test just "@" encoding - should use Mixed mode
+        let input = "A@"
+        print("\n========== A@ ENCODING TRACE ==========")
+        print("Input: \"\(input)\"")
+
+        let dataBits = AztecDataEncoder.encode(input)
+        print("Data bits count: \(dataBits.bitCount)")
+        print("Data bits: ", terminator: "")
+        for i in 0..<dataBits.bitCount {
+            print(dataBits.leastSignificantBits(atBitPosition: i, bitCount: 1), terminator: "")
+        }
+        print()
+
+        // A in Upper = code 2 (5 bits: 00010)
+        // M/L from Upper = code 29 (5 bits: 11101)
+        // @ in Mixed = code 20 (5 bits: 10100)
+        // Total: 15 bits
+        print("\nExpected:")
+        print("  A: code 2 = 00010 (5 bits)")
+        print("  M/L: code 29 = 11101 (5 bits)")
+        print("  @: code 20 = 10100 (5 bits)")
+        print("  Total: 15 bits")
+
+        #expect(dataBits.bitCount == 15)
     }
 }

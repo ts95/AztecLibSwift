@@ -51,11 +51,12 @@ struct CodewordPackingTests {
 
     @Test
     func packs_final_partial_group_leftPads_then_stuffsZero() {
-        // Only 3 data bits 101; w=6 → take=3, left-pad to 5: 10100b=20
-        // Not all-0/1 and no extra source bit → stuff=0 → (20<<1)|0 = 40
+        // ZXing stuffBits: read 6 bits, pad past-end with 1s
+        // Input [1,0,1] (3 bits): read as 101111 (bits 0-2 + 3 pad bits = 1s)
+        // Word = 101111 = 47, not all-0 or all-1, output 47
         let b = buffer(from: [1,0,1])
         let cw = b.makeCodewords(codewordBitWidth: 6)
-        #expect(cw == [40], "Expected 40 for partial final group 101")
+        #expect(cw == [47], "Expected 47 for partial final group 101 with 1-padding")
     }
 
     @Test

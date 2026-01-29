@@ -165,15 +165,9 @@ public struct AztecEncoder: Sendable {
         }
 
         // Build configuration from spec
-        let availableForParity = spec.totalCodewordCount - dataCodewords.count
-        let actualParity = min(availableForParity, max(bestParityCount, Int(ceil(Double(dataCodewords.count) * ecFraction))))
-        var actualDataCodewordCount = spec.totalCodewordCount - actualParity
-
-        // Compact mode messages have only 6 bits for data codeword count (max 64).
-        // Enforce this limit by increasing parity if needed.
-        if spec.isCompact && actualDataCodewordCount > 64 {
-            actualDataCodewordCount = 64
-        }
+        // Use exactly the data codewords needed - remaining capacity goes to parity
+        // This matches CIAztec behavior where mode message encodes actual data count
+        let actualDataCodewordCount = dataCodewords.count
         let finalParity = spec.totalCodewordCount - actualDataCodewordCount
 
         let configuration = AztecConfiguration(
@@ -340,15 +334,9 @@ extension AztecEncoder {
         }
 
         // Build configuration from spec
-        let availableForParity = spec.totalCodewordCount - dataCodewords.count
-        let actualParity = min(availableForParity, max(bestParityCount, Int(ceil(Double(dataCodewords.count) * ecFraction))))
-        var actualDataCodewordCount = spec.totalCodewordCount - actualParity
-
-        // Compact mode messages have only 6 bits for data codeword count (max 64).
-        // Enforce this limit by increasing parity if needed.
-        if spec.isCompact && actualDataCodewordCount > 64 {
-            actualDataCodewordCount = 64
-        }
+        // Use exactly the data codewords needed - remaining capacity goes to parity
+        // This matches CIAztec behavior where mode message encodes actual data count
+        let actualDataCodewordCount = dataCodewords.count
         let finalParity = spec.totalCodewordCount - actualDataCodewordCount
 
         let configuration = AztecConfiguration(

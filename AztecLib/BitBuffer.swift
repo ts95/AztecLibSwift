@@ -175,6 +175,27 @@ public struct BitBuffer: Sendable {
 
 extension BitBuffer {
 
+    // MARK: - MSB-First Appending (ZXing-compatible)
+
+    /// Appends `bitCount` bits from `value` in MSB-first order within the value.
+    /// This matches ZXing's BitArray.appendBits() behavior.
+    ///
+    /// For example, appending value=9 (binary 01001) with bitCount=5:
+    /// - ZXing order: bit4, bit3, bit2, bit1, bit0 → stored as 0,1,0,0,1
+    ///
+    /// - Parameters:
+    ///   - value: The source value to append.
+    ///   - bitCount: The number of bits to append. Must be in `0...64`.
+    public mutating func appendBitsMSBFirst(_ value: UInt64, bitCount: Int) {
+        precondition(0...64 ~= bitCount)
+        if bitCount == 0 { return }
+        // Append each bit from MSB to LSB of the value
+        for i in stride(from: bitCount - 1, through: 0, by: -1) {
+            let bit = (value >> i) & 1
+            appendLeastSignificantBits(bit, bitCount: 1)
+        }
+    }
+
     // MARK: - Filler Codeword
 
     /// Generates a valid filler codeword for the given bit width.
@@ -210,42 +231,44 @@ extension BitBuffer {
     ///   - codewordBitWidth: The codeword width `w` in bits (6, 8, 10, or 12).
     /// - Returns: The sequence of data codewords before Reed–Solomon parity.
     public func makeCodewords(codewordBitWidth w: Int) -> [UInt16] {
+        // Implementation matches ZXing's stuffBits algorithm exactly.
+        // ZXing reads wordSize bits at a time, padding with 1s when past end.
+        // If all upper bits (excluding LSB) are 0 or 1, stuff and don't consume last bit.
         precondition([6, 8, 10, 12].contains(w), "Invalid Aztec codeword width")
-        let dataBitsPerWord = w - 1
-        let allOnesMask = (1 << dataBitsPerWord) &- 1
+        let mask = (1 << w) - 2  // e.g., 0b111110 for w=6
         let total = bitCount
         var pos = 0
         var out: [UInt16] = []
-        out.reserveCapacity((total + dataBitsPerWord) / dataBitsPerWord)
 
         while pos < total {
-            let remaining = total - pos
-            let take = min(remaining, dataBitsPerWord)
-            var v = Int(leastSignificantBits(atBitPosition: pos, bitCount: take))
-
-            // Left-pad a short final group to `w-1` bits.
-            if take < dataBitsPerWord {
-                v <<= (dataBitsPerWord - take)
+            // Read wordSize bits, padding with 1s when past end (per ZXing)
+            var word = 0
+            for j in 0..<w {
+                let bitValue: Int
+                if pos + j >= total {
+                    // Past end of input: treat as 1 (per ZXing)
+                    bitValue = 1
+                } else {
+                    // Read bit at position pos+j, place in MSB-first order
+                    bitValue = Int(leastSignificantBits(atBitPosition: pos + j, bitCount: 1))
+                }
+                if bitValue != 0 {
+                    word |= 1 << (w - 1 - j)
+                }
             }
 
-            if v == 0 {
-                // Stuff a 1; do not consume extra bit.
-                let cw = UInt16((v << 1) | 1)
-                out.append(cw)
-                pos += take
-            } else if v == allOnesMask {
-                // Stuff a 0; do not consume extra bit.
-                let cw = UInt16(v << 1)
-                out.append(cw)
-                pos += take
+            if (word & mask) == mask {
+                // All 1s in upper bits: stuff 0, don't consume last bit
+                out.append(UInt16(word & mask))
+                pos += w - 1
+            } else if (word & mask) == 0 {
+                // All 0s in upper bits: stuff 1, don't consume last bit
+                out.append(UInt16(word | 1))
+                pos += w - 1
             } else {
-                // Consume one more source bit as the stuff bit.
-                let stuff = (pos + take) < total
-                ? Int(leastSignificantBits(atBitPosition: pos + take, bitCount: 1))
-                : 0
-                let cw = UInt16((v << 1) | stuff)
-                out.append(cw)
-                pos += take + 1
+                // Normal case: output as-is, consumed all wordSize bits
+                out.append(UInt16(word))
+                pos += w
             }
         }
         return out

@@ -388,14 +388,14 @@ struct DataEncoderAdvancedTests {
 
     @Test
     func mixed_mode_code_values() {
-        // Verify specific mixed mode character codes
-        #expect(AztecModeTables.mixedCharToCode["@"] == 19)
-        #expect(AztecModeTables.mixedCharToCode["\\"] == 20)
-        #expect(AztecModeTables.mixedCharToCode["^"] == 21)
-        #expect(AztecModeTables.mixedCharToCode["_"] == 22)
-        #expect(AztecModeTables.mixedCharToCode["`"] == 23)
-        #expect(AztecModeTables.mixedCharToCode["|"] == 24)
-        #expect(AztecModeTables.mixedCharToCode["~"] == 25)
+        // ZXing-compatible mixed mode character codes: @=20, \=21, ^=22, _=23, `=24, |=25, ~=26
+        #expect(AztecModeTables.mixedCharToCode["@"] == 20)
+        #expect(AztecModeTables.mixedCharToCode["\\"] == 21)
+        #expect(AztecModeTables.mixedCharToCode["^"] == 22)
+        #expect(AztecModeTables.mixedCharToCode["_"] == 23)
+        #expect(AztecModeTables.mixedCharToCode["`"] == 24)
+        #expect(AztecModeTables.mixedCharToCode["|"] == 25)
+        #expect(AztecModeTables.mixedCharToCode["~"] == 26)
     }
 
     @Test

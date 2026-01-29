@@ -39,20 +39,20 @@ public struct ReedSolomonEncoder: Sendable {
         var reg = [UInt16](repeating: 0, count: parityCodewordCount)
 
         for d in dataCodewords {
-            // Feedback from the last register cell (right-shift form)
-            let fb = field.add(d, reg[parityCodewordCount - 1])
+            // Feedback from the first register cell (for correct coefficient order)
+            let fb = field.add(d, reg[0])
 
-            // Shift right by one: reg[j] = reg[j-1]
+            // Shift left by one: reg[j] = reg[j+1]
             if parityCodewordCount > 1 {
-                for j in stride(from: parityCodewordCount - 1, through: 1, by: -1) {
-                    reg[j] = reg[j - 1]
+                for j in 0..<(parityCodewordCount - 1) {
+                    reg[j] = reg[j + 1]
                 }
             }
-            reg[0] = 0
+            reg[parityCodewordCount - 1] = 0
 
-            // Mix feedback using taps g[1..t] (skip g[0], the constant term; include g[t] which is 1 for monic g)
+            // Mix feedback using generator taps
             for j in 0..<parityCodewordCount {
-                let tap = g[j + 1]
+                let tap = g[parityCodewordCount - 1 - j]
                 if tap != 0 {
                     reg[j] = field.add(reg[j], field.multiply(fb, tap))
                 }

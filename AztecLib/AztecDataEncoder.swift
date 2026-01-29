@@ -43,37 +43,44 @@ internal struct AztecModeTables: Sendable {
     }()
 
     /// Mixed mode: Control characters and some punctuation (5 bits)
-    /// Per ISO/IEC 24778 Table 5
+    /// Per ZXing: NUL=0, Space=1, ^A-CR=2-14, ESC=15, FS-US=16-19, @=20, etc.
     static let mixedCharToCode: [Character: Int] = {
         var map: [Character: Int] = [:]
-        // Control characters (codes 1-14)
-        map[Character(UnicodeScalar(1)!)] = 1   // ^A
-        map[Character(UnicodeScalar(2)!)] = 2   // ^B
-        map[Character(UnicodeScalar(3)!)] = 3   // ^C
-        map[Character(UnicodeScalar(4)!)] = 4   // ^D
-        map[Character(UnicodeScalar(5)!)] = 5   // ^E
-        map[Character(UnicodeScalar(6)!)] = 6   // ^F
-        map[Character(UnicodeScalar(7)!)] = 7   // ^G
-        map[Character(UnicodeScalar(8)!)] = 8   // ^H (BS)
-        map[Character(UnicodeScalar(9)!)] = 9   // ^I (HT)
-        map[Character(UnicodeScalar(10)!)] = 10 // ^J (LF)
-        map[Character(UnicodeScalar(11)!)] = 11 // ^K
-        map[Character(UnicodeScalar(12)!)] = 12 // ^L (FF)
-        map[Character(UnicodeScalar(13)!)] = 13 // ^M (CR)
-        map[Character(UnicodeScalar(27)!)] = 14 // ^[ (ESC)
-        map[Character(UnicodeScalar(28)!)] = 15 // ^\
-        map[Character(UnicodeScalar(29)!)] = 16 // ^]
-        map[Character(UnicodeScalar(30)!)] = 17 // ^^
-        map[Character(UnicodeScalar(31)!)] = 18 // ^_
-        // Printable characters
-        map["@"] = 19
-        map["\\"] = 20
-        map["^"] = 21
-        map["_"] = 22
-        map["`"] = 23
-        map["|"] = 24
-        map["~"] = 25
-        map[Character(UnicodeScalar(127)!)] = 26 // DEL
+        // Code 0: NUL
+        map[Character(UnicodeScalar(0)!)] = 0
+        // Code 1: Space
+        map[" "] = 1
+        // Codes 2-14: Control characters ^A through CR
+        map[Character(UnicodeScalar(1)!)] = 2   // ^A (SOH)
+        map[Character(UnicodeScalar(2)!)] = 3   // ^B (STX)
+        map[Character(UnicodeScalar(3)!)] = 4   // ^C (ETX)
+        map[Character(UnicodeScalar(4)!)] = 5   // ^D (EOT)
+        map[Character(UnicodeScalar(5)!)] = 6   // ^E (ENQ)
+        map[Character(UnicodeScalar(6)!)] = 7   // ^F (ACK)
+        map[Character(UnicodeScalar(7)!)] = 8   // ^G (BEL)
+        map[Character(UnicodeScalar(8)!)] = 9   // ^H (BS)
+        map[Character(UnicodeScalar(9)!)] = 10  // ^I (HT)
+        map[Character(UnicodeScalar(10)!)] = 11 // ^J (LF)
+        map[Character(UnicodeScalar(11)!)] = 12 // ^K (VT)
+        map[Character(UnicodeScalar(12)!)] = 13 // ^L (FF)
+        map[Character(UnicodeScalar(13)!)] = 14 // ^M (CR)
+        // Code 15: ESC
+        map[Character(UnicodeScalar(27)!)] = 15 // ESC
+        // Codes 16-19: FS, GS, RS, US
+        map[Character(UnicodeScalar(28)!)] = 16 // FS
+        map[Character(UnicodeScalar(29)!)] = 17 // GS
+        map[Character(UnicodeScalar(30)!)] = 18 // RS
+        map[Character(UnicodeScalar(31)!)] = 19 // US
+        // Codes 20-26: Printable characters
+        map["@"] = 20
+        map["\\"] = 21
+        map["^"] = 22
+        map["_"] = 23
+        map["`"] = 24
+        map["|"] = 25
+        map["~"] = 26
+        // Code 27: DEL
+        map[Character(UnicodeScalar(127)!)] = 27
         return map
     }()
 
@@ -114,16 +121,16 @@ internal struct AztecModeTables: Sendable {
     }()
 
     /// Digit mode: digits and some punctuation (4 bits)
-    /// Per ISO/IEC 24778 Table 7
+    /// Per ZXing/ISO - Codes: 0=P/L, 1=space, 2-11='0'-'9', 12=',', 13='.'
     static let digitCharToCode: [Character: Int] = {
         var map: [Character: Int] = [:]
-        // Codes 0-1 are control codes
-        map[" "] = 2
-        map[","] = 3
-        map["."] = 4
+        // Code 0 is P/L (latch to Punct), handled separately
+        map[" "] = 1
         for i in 0...9 {
-            map[Character("\(i)")] = i + 5
+            map[Character("\(i)")] = i + 2  // '0'=2, '1'=3, ..., '9'=11
         }
+        map[","] = 12
+        map["."] = 13
         return map
     }()
 
@@ -230,7 +237,7 @@ public struct AztecDataEncoder: Sendable {
                 let twoChar = String(chars[i...i+1])
                 if let punctCode = punctTwoCharCode(twoChar) {
                     appendModeSwitch(from: currentMode, to: .punct, buffer: &buffer, latch: false)
-                    buffer.appendLeastSignificantBits(UInt64(punctCode), bitCount: 5)
+                    buffer.appendBitsMSBFirst(UInt64(punctCode), bitCount: 5)
                     i += 2
                     continue
                 }
@@ -239,7 +246,7 @@ public struct AztecDataEncoder: Sendable {
             // Check if current mode can encode this character
             if let code = AztecModeTables.code(for: char, in: currentMode) {
                 let bits = AztecModeTables.bitWidth(for: currentMode)
-                buffer.appendLeastSignificantBits(UInt64(code), bitCount: bits)
+                buffer.appendBitsMSBFirst(UInt64(code), bitCount: bits)
                 i += 1
                 continue
             }
@@ -249,7 +256,7 @@ public struct AztecDataEncoder: Sendable {
                 // Check if a shift code exists for this transition
                 let shiftExists = AztecModeTransitions.shiftCodes[currentMode]?[targetMode] != nil
 
-                // If no shift code exists, always latch; otherwise use lookahead heuristic
+                // If no shift code exists, always latch; otherwise use cost-based heuristic
                 let shouldLatch = shiftExists ? shouldLatchToMode(targetMode, from: currentMode, remaining: Array(chars[i...])) : true
 
                 if shouldLatch {
@@ -260,7 +267,7 @@ public struct AztecDataEncoder: Sendable {
                 }
 
                 let bits = AztecModeTables.bitWidth(for: targetMode)
-                buffer.appendLeastSignificantBits(UInt64(code), bitCount: bits)
+                buffer.appendBitsMSBFirst(UInt64(code), bitCount: bits)
                 i += 1
                 continue
             }
@@ -322,27 +329,67 @@ public struct AztecDataEncoder: Sendable {
         return nil
     }
 
+    /// Latch costs in bits between modes (from ZXing LATCH_TABLE)
+    private static let latchCostBits: [AztecMode: [AztecMode: Int]] = [
+        .upper: [.upper: 0, .lower: 5, .digit: 5, .mixed: 5, .punct: 10],
+        .lower: [.upper: 9, .lower: 0, .digit: 5, .mixed: 5, .punct: 10],
+        .digit: [.upper: 4, .lower: 9, .digit: 0, .mixed: 9, .punct: 14],
+        .mixed: [.upper: 5, .lower: 5, .digit: 10, .mixed: 0, .punct: 5],
+        .punct: [.upper: 5, .lower: 10, .digit: 10, .mixed: 10, .punct: 0],
+    ]
+
     /// Determines whether to latch (permanent switch) or shift (temporary) to a mode.
     private static func shouldLatchToMode(
         _ targetMode: AztecMode,
         from currentMode: AztecMode,
         remaining: [Character]
     ) -> Bool {
-        // Use lookahead to decide: if multiple upcoming characters need the target mode, latch
-        var countInTarget = 0
-        let lookaheadLength = min(8, remaining.count)
+        // If only one character left, shift is fine
+        guard remaining.count >= 2 else { return false }
 
-        for i in 0..<lookaheadLength {
-            if AztecModeTables.code(for: remaining[i], in: targetMode) != nil {
+        // Count how many consecutive characters work in the target mode
+        var countInTarget = 0
+        for char in remaining {
+            if AztecModeTables.code(for: char, in: targetMode) != nil {
                 countInTarget += 1
-            } else if AztecModeTables.code(for: remaining[i], in: currentMode) != nil {
-                // Can return to current mode
+            } else {
                 break
             }
         }
 
-        // Latch if we'll use the target mode for 2+ characters
-        return countInTarget >= 2
+        // Latch if 2+ consecutive characters use the target mode
+        if countInTarget >= 2 {
+            return true
+        }
+
+        // For single character followed by a different mode:
+        // Compare the cost of being in currentMode vs targetMode for encoding remaining chars
+        let nextChar = remaining[1]
+
+        // Find what mode the next character needs
+        guard let (nextCharMode, _) = findBestMode(for: nextChar, from: currentMode, lookahead: Array(remaining.dropFirst())) else {
+            // Next char needs byte mode, doesn't matter much
+            return false
+        }
+
+        // Compare costs:
+        // SHIFT path: shift (5 bits) + char + latch from currentMode to nextCharMode
+        // LATCH path: latch (varies) + char + latch from targetMode to nextCharMode
+
+        let shiftBits = AztecModeTables.bitWidth(for: currentMode) == 4 ? 4 : 5  // U/S or P/S
+        let currentToNextCost = latchCostBits[currentMode]?[nextCharMode] ?? 10
+        let targetToNextCost = latchCostBits[targetMode]?[nextCharMode] ?? 10
+        let currentToTargetCost = latchCostBits[currentMode]?[targetMode] ?? 10
+
+        // SHIFT total: shiftBits + targetModeBits + currentToNextCost
+        // LATCH total: currentToTargetCost + targetModeBits + targetToNextCost
+        let targetBits = AztecModeTables.bitWidth(for: targetMode)
+
+        let shiftPathCost = shiftBits + targetBits + currentToNextCost
+        let latchPathCost = currentToTargetCost + targetBits + targetToNextCost
+
+        // Latch if it's cheaper or equal (prefer latch for stability)
+        return latchPathCost <= shiftPathCost
     }
 
     /// Appends mode switch codes to the buffer.
@@ -357,46 +404,46 @@ public struct AztecDataEncoder: Sendable {
         if latch {
             // Latch (permanent switch)
             if let transition = AztecModeTransitions.latchCodes[source]?[target] {
-                buffer.appendLeastSignificantBits(UInt64(transition.code), bitCount: transition.bits)
+                buffer.appendBitsMSBFirst(UInt64(transition.code), bitCount: transition.bits)
             } else {
                 // Need intermediate mode
                 switch (source, target) {
                 case (.upper, .punct):
                     // U -> M/L -> P/L
-                    buffer.appendLeastSignificantBits(29, bitCount: 5) // M/L
-                    buffer.appendLeastSignificantBits(30, bitCount: 5) // P/L
+                    buffer.appendBitsMSBFirst(29, bitCount: 5) // M/L
+                    buffer.appendBitsMSBFirst(30, bitCount: 5) // P/L
                 case (.lower, .upper):
                     // L -> D/L -> U/L
-                    buffer.appendLeastSignificantBits(30, bitCount: 5) // D/L
-                    buffer.appendLeastSignificantBits(14, bitCount: 4) // U/L
+                    buffer.appendBitsMSBFirst(30, bitCount: 5) // D/L
+                    buffer.appendBitsMSBFirst(14, bitCount: 4) // U/L
                 case (.lower, .punct):
                     // L -> M/L -> P/L
-                    buffer.appendLeastSignificantBits(29, bitCount: 5) // M/L
-                    buffer.appendLeastSignificantBits(30, bitCount: 5) // P/L
+                    buffer.appendBitsMSBFirst(29, bitCount: 5) // M/L
+                    buffer.appendBitsMSBFirst(30, bitCount: 5) // P/L
                 case (.mixed, .digit):
                     // M -> U/L -> D/L
-                    buffer.appendLeastSignificantBits(29, bitCount: 5) // U/L
-                    buffer.appendLeastSignificantBits(30, bitCount: 5) // D/L
+                    buffer.appendBitsMSBFirst(29, bitCount: 5) // U/L
+                    buffer.appendBitsMSBFirst(30, bitCount: 5) // D/L
                 case (.punct, .lower):
                     // P -> U/L -> L/L
-                    buffer.appendLeastSignificantBits(31, bitCount: 5) // U/L
-                    buffer.appendLeastSignificantBits(28, bitCount: 5) // L/L
+                    buffer.appendBitsMSBFirst(31, bitCount: 5) // U/L
+                    buffer.appendBitsMSBFirst(28, bitCount: 5) // L/L
                 case (.punct, .mixed):
                     // P -> U/L -> M/L
-                    buffer.appendLeastSignificantBits(31, bitCount: 5) // U/L
-                    buffer.appendLeastSignificantBits(29, bitCount: 5) // M/L
+                    buffer.appendBitsMSBFirst(31, bitCount: 5) // U/L
+                    buffer.appendBitsMSBFirst(29, bitCount: 5) // M/L
                 case (.punct, .digit):
                     // P -> U/L -> D/L
-                    buffer.appendLeastSignificantBits(31, bitCount: 5) // U/L
-                    buffer.appendLeastSignificantBits(30, bitCount: 5) // D/L
+                    buffer.appendBitsMSBFirst(31, bitCount: 5) // U/L
+                    buffer.appendBitsMSBFirst(30, bitCount: 5) // D/L
                 case (.digit, .lower):
                     // D -> U/L -> L/L
-                    buffer.appendLeastSignificantBits(14, bitCount: 4) // U/L
-                    buffer.appendLeastSignificantBits(28, bitCount: 5) // L/L
+                    buffer.appendBitsMSBFirst(14, bitCount: 4) // U/L
+                    buffer.appendBitsMSBFirst(28, bitCount: 5) // L/L
                 case (.digit, .mixed):
                     // D -> U/L -> M/L
-                    buffer.appendLeastSignificantBits(14, bitCount: 4) // U/L
-                    buffer.appendLeastSignificantBits(29, bitCount: 5) // M/L
+                    buffer.appendBitsMSBFirst(14, bitCount: 4) // U/L
+                    buffer.appendBitsMSBFirst(29, bitCount: 5) // M/L
                 default:
                     break
                 }
@@ -404,7 +451,7 @@ public struct AztecDataEncoder: Sendable {
         } else {
             // Shift (temporary switch)
             if let transition = AztecModeTransitions.shiftCodes[source]?[target] {
-                buffer.appendLeastSignificantBits(UInt64(transition.code), bitCount: transition.bits)
+                buffer.appendBitsMSBFirst(UInt64(transition.code), bitCount: transition.bits)
             }
         }
     }
@@ -417,30 +464,30 @@ public struct AztecDataEncoder: Sendable {
         switch mode {
         case .punct:
             // P -> U/L -> B/S
-            buffer.appendLeastSignificantBits(31, bitCount: 5) // U/L
-            buffer.appendLeastSignificantBits(31, bitCount: 5) // B/S
+            buffer.appendBitsMSBFirst(31, bitCount: 5) // U/L
+            buffer.appendBitsMSBFirst(31, bitCount: 5) // B/S
         case .digit:
             // D -> U/L -> B/S (via upper)
-            buffer.appendLeastSignificantBits(14, bitCount: 4) // U/L
-            buffer.appendLeastSignificantBits(31, bitCount: 5) // B/S
+            buffer.appendBitsMSBFirst(14, bitCount: 4) // U/L
+            buffer.appendBitsMSBFirst(31, bitCount: 5) // B/S
         default:
             // U, L, M can use B/S directly
-            buffer.appendLeastSignificantBits(31, bitCount: 5) // B/S
+            buffer.appendBitsMSBFirst(31, bitCount: 5) // B/S
         }
 
         // Length encoding
         if bytes.count < 32 {
             // Short form: 5-bit length
-            buffer.appendLeastSignificantBits(UInt64(bytes.count), bitCount: 5)
+            buffer.appendBitsMSBFirst(UInt64(bytes.count), bitCount: 5)
         } else {
             // Long form: 0 + 11-bit length
-            buffer.appendLeastSignificantBits(0, bitCount: 5)
-            buffer.appendLeastSignificantBits(UInt64(bytes.count - 31), bitCount: 11)
+            buffer.appendBitsMSBFirst(0, bitCount: 5)
+            buffer.appendBitsMSBFirst(UInt64(bytes.count - 31), bitCount: 11)
         }
 
-        // Raw bytes
+        // Raw bytes (MSB-first per byte)
         for byte in bytes {
-            buffer.appendLeastSignificantBits(UInt64(byte), bitCount: 8)
+            buffer.appendBitsMSBFirst(UInt64(byte), bitCount: 8)
         }
     }
 }

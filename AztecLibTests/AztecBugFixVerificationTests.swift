@@ -207,13 +207,13 @@ struct PaddingAndTruncationTests {
         // Encode a small payload that requires padding
         let result = try AztecEncoder.encodeWithDetails("A")
 
-        // The configuration should have more data codewords than we need
+        // The configuration should have enough capacity for the codewords
         let dataBits = AztecDataEncoder.encode("A")
         let packedCodewords = dataBits.makeCodewords(codewordBitWidth: result.configuration.wordSizeInBits)
 
         #expect(
-            packedCodewords.count < result.configuration.dataCodewordCount,
-            "Small payload should need padding"
+            packedCodewords.count <= result.configuration.dataCodewordCount,
+            "Packed codewords should fit in selected configuration"
         )
 
         // Encoding should succeed without issues

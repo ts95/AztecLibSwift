@@ -189,10 +189,11 @@ private func tryConfiguration(spec: SymbolSpec, payloadBitCount: Int, ecFraction
     let requiredCodewords = dataCodewordsNeeded + parityCodewords
     guard requiredCodewords <= totalCodewords else { return nil }
 
-    // Allocate remaining capacity to parity (up to the requested EC level)
-    let availableForParity = totalCodewords - dataCodewordsNeeded
-    let actualParityCodewords = min(availableForParity, max(parityCodewords, minParityCodewords))
-    let actualDataCodewords = totalCodewords - actualParityCodewords
+    // Use exactly the data codewords needed (plus padding handled during encoding)
+    // and allocate the rest to parity. This matches CIAztec behavior where
+    // the mode message encodes the actual data codeword count, not the maximum.
+    let actualDataCodewords = dataCodewordsNeeded
+    let actualParityCodewords = totalCodewords - actualDataCodewords
 
     return AztecConfiguration(
         isCompact: spec.isCompact,

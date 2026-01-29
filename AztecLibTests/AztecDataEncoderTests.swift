@@ -178,11 +178,12 @@ struct ModeTableTests {
 
     @Test
     func digit_mode_has_correct_codes() {
-        #expect(AztecModeTables.digitCharToCode["0"] == 5)
-        #expect(AztecModeTables.digitCharToCode["9"] == 14)
-        #expect(AztecModeTables.digitCharToCode[" "] == 2)
-        #expect(AztecModeTables.digitCharToCode[","] == 3)
-        #expect(AztecModeTables.digitCharToCode["."] == 4)
+        // ZXing-compatible digit mode codes: space=1, 0-9=2-11, comma=12, period=13
+        #expect(AztecModeTables.digitCharToCode["0"] == 2)
+        #expect(AztecModeTables.digitCharToCode["9"] == 11)
+        #expect(AztecModeTables.digitCharToCode[" "] == 1)
+        #expect(AztecModeTables.digitCharToCode[","] == 12)
+        #expect(AztecModeTables.digitCharToCode["."] == 13)
     }
 
     @Test

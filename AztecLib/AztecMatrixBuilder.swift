@@ -129,42 +129,34 @@ public struct AztecMatrixBuilder: Sendable {
     }
 
     /// Draws orientation marks for compact symbols per ISO/IEC 24778.
-    /// These marks form an asymmetric pattern so the decoder can determine orientation:
-    /// - Upper-left corner: 1 black module
-    /// - Upper-right corner: 2 black modules (corner + one to the left)
-    /// - Lower-right corner: 3 black modules (L-shape)
+    /// These marks help decoders determine symbol orientation.
+    /// For compact symbols, marks are placed at distance 5 from center.
     private func drawCompactOrientationMarks(matrix: inout BitBuffer, size: Int, center: Int) {
-        let offset = 5 // Just outside the 9x9 finder area (radius 4) and mode message ring
-
-        // Upper-left corner: 1 black module
-        setModule(matrix: &matrix, size: size, x: center - offset, y: center - offset, value: true)
-
-        // Upper-right corner: 2 black modules
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center - offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center - offset, value: true)
-
-        // Lower-right corner: 3 black modules (L-shape)
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center + offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset - 1, value: true)
+        let d = 5  // Distance from center for compact symbols
+        // Top-left corner: 3 marks forming an L
+        setModule(matrix: &matrix, size: size, x: center - d, y: center - d, value: true)
+        setModule(matrix: &matrix, size: size, x: center - d + 1, y: center - d, value: true)
+        setModule(matrix: &matrix, size: size, x: center - d, y: center - d + 1, value: true)
+        // Top-right corner: 2 vertical marks
+        setModule(matrix: &matrix, size: size, x: center + d, y: center - d, value: true)
+        setModule(matrix: &matrix, size: size, x: center + d, y: center - d + 1, value: true)
+        // Bottom-right corner: 1 mark
+        setModule(matrix: &matrix, size: size, x: center + d, y: center + d - 1, value: true)
     }
 
     /// Draws orientation marks for full symbols per ISO/IEC 24778.
-    /// Same pattern as compact but at a larger offset.
+    /// Same pattern as compact but at distance 7 from center.
     private func drawFullOrientationMarks(matrix: inout BitBuffer, size: Int, center: Int) {
-        let offset = 7 // Just outside the 13x13 finder area (radius 6) and mode message ring
-
-        // Upper-left corner: 1 black module
-        setModule(matrix: &matrix, size: size, x: center - offset, y: center - offset, value: true)
-
-        // Upper-right corner: 2 black modules
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center - offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center - offset, value: true)
-
-        // Lower-right corner: 3 black modules (L-shape)
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset - 1, y: center + offset, value: true)
-        setModule(matrix: &matrix, size: size, x: center + offset, y: center + offset - 1, value: true)
+        let d = 7  // Distance from center for full symbols
+        // Top-left corner: 3 marks forming an L
+        setModule(matrix: &matrix, size: size, x: center - d, y: center - d, value: true)
+        setModule(matrix: &matrix, size: size, x: center - d + 1, y: center - d, value: true)
+        setModule(matrix: &matrix, size: size, x: center - d, y: center - d + 1, value: true)
+        // Top-right corner: 2 vertical marks
+        setModule(matrix: &matrix, size: size, x: center + d, y: center - d, value: true)
+        setModule(matrix: &matrix, size: size, x: center + d, y: center - d + 1, value: true)
+        // Bottom-right corner: 1 mark
+        setModule(matrix: &matrix, size: size, x: center + d, y: center + d - 1, value: true)
     }
 
     // MARK: - Mode Message
@@ -188,106 +180,64 @@ public struct AztecMatrixBuilder: Sendable {
     }
 
     /// Places compact mode message bits around the finder per ISO/IEC 24778.
-    /// The mode message forms a ring around the finder, placed clockwise starting from upper-left:
-    /// - Top segment: right to left (bits 0-6)
+    /// The mode message forms a ring around the finder, matching ZXing-cpp's placement:
+    /// - Top segment: left to right (bits 0-6)
     /// - Right segment: top to bottom (bits 7-13)
-    /// - Bottom segment: left to right (bits 14-20)
-    /// - Left segment: bottom to top (bits 21-27)
+    /// - Bottom segment: left to right (bits 20-14, reversed order)
+    /// - Left segment: top to bottom (bits 27-21, reversed order)
     private func placeCompactModeMessage(matrix: inout BitBuffer, size: Int, center: Int, bits: BitBuffer) {
         precondition(bits.bitCount >= 28, "Compact mode message requires 28 bits, got \(bits.bitCount)")
-        let r = 5 // Offset from center for mode message ring
 
-        var bitIndex = 0
+        // Mode message is placed at distance 5 from center
+        // Each edge has 7 bits at positions offset = center - 3 + i for i in 0..<7
+        for i in 0..<7 {
+            let offset = center - 3 + i
 
-        // Top segment: right to left, y = center - r
-        // Place bits 0-6 from right to left along the top edge
-        for x in stride(from: center + r - 1, through: center - r + 1, by: -1) {
-            if x == center { continue } // Skip center column
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: x, y: center - r, value: bit)
-            bitIndex += 1
-            if bitIndex >= 7 { break }
-        }
+            // Top edge (y = center - 5): bit i at x = offset
+            let topBit = bits.leastSignificantBits(atBitPosition: i, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: offset, y: center - 5, value: topBit)
 
-        // Right segment: top to bottom, x = center + r
-        // Place bits 7-13 from top to bottom along the right edge
-        bitIndex = 7
-        for y in (center - r + 1)..<(center + r) {
-            if y == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: center + r, y: y, value: bit)
-            bitIndex += 1
-            if bitIndex >= 14 { break }
-        }
+            // Right edge (x = center + 5): bit i+7 at y = offset
+            let rightBit = bits.leastSignificantBits(atBitPosition: i + 7, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: center + 5, y: offset, value: rightBit)
 
-        // Bottom segment: left to right, y = center + r
-        // Place bits 14-20 from left to right along the bottom edge
-        bitIndex = 14
-        for x in (center - r + 1)..<(center + r) {
-            if x == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: x, y: center + r, value: bit)
-            bitIndex += 1
-            if bitIndex >= 21 { break }
-        }
+            // Bottom edge (y = center + 5): bit 20-i at x = offset (reversed order)
+            let bottomBit = bits.leastSignificantBits(atBitPosition: 20 - i, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: offset, y: center + 5, value: bottomBit)
 
-        // Left segment: bottom to top, x = center - r
-        // Place bits 21-27 from bottom to top along the left edge
-        bitIndex = 21
-        for y in stride(from: center + r - 1, through: center - r + 1, by: -1) {
-            if y == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: center - r, y: y, value: bit)
-            bitIndex += 1
-            if bitIndex >= 28 { break }
+            // Left edge (x = center - 5): bit 27-i at y = offset (reversed order)
+            let leftBit = bits.leastSignificantBits(atBitPosition: 27 - i, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: center - 5, y: offset, value: leftBit)
         }
     }
 
     /// Places full mode message bits around the finder per ISO/IEC 24778.
     /// Same pattern as compact but with 10 bits per segment (40 bits total).
+    /// The offset formula `center - 5 + i + i/5` creates a gap at the center position.
     private func placeFullModeMessage(matrix: inout BitBuffer, size: Int, center: Int, bits: BitBuffer) {
         precondition(bits.bitCount >= 40, "Full mode message requires 40 bits, got \(bits.bitCount)")
-        let r = 7 // Offset from center for mode message ring
 
-        var bitIndex = 0
+        // Mode message is placed at distance 7 from center
+        // Each edge has 10 bits at positions with a gap to skip center
+        for i in 0..<10 {
+            // The i/5 term adds 0 for i=0..4 and 1 for i=5..9, creating a gap at center
+            let offset = center - 5 + i + i / 5
 
-        // Top segment: right to left
-        for x in stride(from: center + r - 1, through: center - r + 1, by: -1) {
-            if x == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: x, y: center - r, value: bit)
-            bitIndex += 1
-            if bitIndex >= 10 { break }
-        }
+            // Top edge (y = center - 7): bit i at x = offset
+            let topBit = bits.leastSignificantBits(atBitPosition: i, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: offset, y: center - 7, value: topBit)
 
-        // Right segment: top to bottom
-        bitIndex = 10
-        for y in (center - r + 1)..<(center + r) {
-            if y == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: center + r, y: y, value: bit)
-            bitIndex += 1
-            if bitIndex >= 20 { break }
-        }
+            // Right edge (x = center + 7): bit i+10 at y = offset
+            let rightBit = bits.leastSignificantBits(atBitPosition: i + 10, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: center + 7, y: offset, value: rightBit)
 
-        // Bottom segment: left to right
-        bitIndex = 20
-        for x in (center - r + 1)..<(center + r) {
-            if x == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: x, y: center + r, value: bit)
-            bitIndex += 1
-            if bitIndex >= 30 { break }
-        }
+            // Bottom edge (y = center + 7): bit 29-i at x = offset (reversed order)
+            let bottomBit = bits.leastSignificantBits(atBitPosition: 29 - i, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: offset, y: center + 7, value: bottomBit)
 
-        // Left segment: bottom to top
-        bitIndex = 30
-        for y in stride(from: center + r - 1, to: center - r, by: -1) {
-            if y == center { continue }
-            let bit = bits.leastSignificantBits(atBitPosition: bitIndex, bitCount: 1) != 0
-            setModule(matrix: &matrix, size: size, x: center - r, y: y, value: bit)
-            bitIndex += 1
-            if bitIndex >= 40 { break }
+            // Left edge (x = center - 7): bit 39-i at y = offset (reversed order)
+            let leftBit = bits.leastSignificantBits(atBitPosition: 39 - i, bitCount: 1) != 0
+            setModule(matrix: &matrix, size: size, x: center - 7, y: offset, value: leftBit)
         }
     }
 
@@ -354,33 +304,132 @@ public struct AztecMatrixBuilder: Sendable {
 
     // MARK: - Data Placement
 
-    /// Places data codewords in a counter-clockwise spiral from the finder outward.
-    /// - Throws: `AztecMatrixBuilderError.insufficientPathCapacity` if the path cannot fit all codewords.
+    /// Places data codewords using ZXing-compatible bit placement.
+    /// Bits are arranged by side: top bits, then right, then bottom, then left.
+    /// - Throws: `AztecMatrixBuilderError.insufficientPathCapacity` if the data doesn't fit.
     private func placeDataCodewords(matrix: inout BitBuffer, size: Int, codewords: [UInt16]) throws(AztecMatrixBuilderError) {
-        let center = size / 2
         let wordSize = configuration.wordSizeInBits
+        let layers = configuration.layerCount
+        let baseMatrixSize = configuration.isCompact ? 11 + layers * 4 : 14 + layers * 4
 
-        // Build the spiral path (2 bits wide, counter-clockwise from center outward)
-        let path = buildDataPath(size: size, center: center)
+        // Build alignment map (identity for compact symbols without reference grid)
+        let alignmentMap = buildAlignmentMap(matrixSize: baseMatrixSize, size: size)
 
-        // Calculate total bits needed
-        let totalBitsNeeded = codewords.count * wordSize
+        // Calculate total bits in layer per ZXing formula
+        let totalBitsInLayer = ((configuration.isCompact ? 88 : 112) + 16 * layers) * layers
 
-        // Validate path has sufficient capacity - throw error rather than silently truncating
-        guard path.count >= totalBitsNeeded else {
-            throw AztecMatrixBuilderError.insufficientPathCapacity(needed: totalBitsNeeded, available: path.count)
+        // ZXing adds startPad zero bits at the beginning for alignment
+        // startPad = totalBitsInLayer % wordSize
+        let startPad = totalBitsInLayer % wordSize
+
+        // Build message bits: startPad zeros, then codewords MSB-first
+        var messageBits: [Bool] = []
+
+        // Add startPad zero bits at the beginning (critical for ZXing compatibility!)
+        for _ in 0..<startPad {
+            messageBits.append(false)
         }
 
-        // Place codewords along the path
-        var pathIndex = 0
+        // Flatten codewords to bits (MSB first within each codeword per ZXing's appendBits)
         for codeword in codewords {
             for bitPos in stride(from: wordSize - 1, through: 0, by: -1) {
-                let (x, y) = path[pathIndex]
-                let bit = ((codeword >> bitPos) & 1) != 0
-                setModule(matrix: &matrix, size: size, x: x, y: y, value: bit)
-                pathIndex += 1
+                messageBits.append(((codeword >> bitPos) & 1) != 0)
             }
         }
+
+        // Calculate total bits needed for validation
+        var totalBitsNeeded = 0
+        for i in 0..<layers {
+            let rowSize = (layers - i) * 4 + (configuration.isCompact ? 9 : 12)
+            totalBitsNeeded += rowSize * 8
+        }
+
+        // Pad message bits with zeros if needed
+        while messageBits.count < totalBitsNeeded {
+            messageBits.append(false)
+        }
+
+        // Place bits using ZXing's algorithm: top, right, bottom, left for each layer
+        var rowOffset = 0
+        for i in 0..<layers {
+            let rowSize = (layers - i) * 4 + (configuration.isCompact ? 9 : 12)
+
+            for j in 0..<rowSize {
+                let columnOffset = j * 2
+
+                for k in 0..<2 {
+                    // Top side
+                    if messageBits[rowOffset + columnOffset + k] {
+                        let x = alignmentMap[i * 2 + k]
+                        let y = alignmentMap[i * 2 + j]
+                        setModule(matrix: &matrix, size: size, x: x, y: y, value: true)
+                    }
+
+                    // Right side
+                    if messageBits[rowOffset + rowSize * 2 + columnOffset + k] {
+                        let x = alignmentMap[i * 2 + j]
+                        let y = alignmentMap[baseMatrixSize - 1 - i * 2 - k]
+                        setModule(matrix: &matrix, size: size, x: x, y: y, value: true)
+                    }
+
+                    // Bottom side
+                    if messageBits[rowOffset + rowSize * 4 + columnOffset + k] {
+                        let x = alignmentMap[baseMatrixSize - 1 - i * 2 - k]
+                        let y = alignmentMap[baseMatrixSize - 1 - i * 2 - j]
+                        setModule(matrix: &matrix, size: size, x: x, y: y, value: true)
+                    }
+
+                    // Left side
+                    if messageBits[rowOffset + rowSize * 6 + columnOffset + k] {
+                        let x = alignmentMap[baseMatrixSize - 1 - i * 2 - j]
+                        let y = alignmentMap[i * 2 + k]
+                        setModule(matrix: &matrix, size: size, x: x, y: y, value: true)
+                    }
+                }
+            }
+
+            rowOffset += rowSize * 8
+        }
+    }
+
+    /// Builds the alignment map for coordinate transformation.
+    /// For compact symbols without reference grid, this is identity.
+    /// For full symbols with reference grid, it skips grid line positions.
+    private func buildAlignmentMap(matrixSize: Int, size: Int) -> [Int] {
+        if configuration.isCompact || !hasReferenceGrid {
+            // Identity mapping for compact symbols
+            return Array(0..<size)
+        }
+
+        // For full symbols with reference grid, skip positions that fall on grid lines
+        var map: [Int] = []
+        let center = size / 2
+        var origPos = 0
+        for i in 0..<size {
+            // Check if this position is on a reference grid line
+            let distFromCenter = i - center
+            let refLineCount = (configuration.layerCount - 1) / 15
+            var isGridLine = false
+            for g in 1...refLineCount {
+                if abs(distFromCenter) == g * 16 {
+                    isGridLine = true
+                    break
+                }
+            }
+            if !isGridLine {
+                if map.count <= origPos {
+                    map.append(i)
+                }
+                origPos += 1
+            }
+        }
+
+        // Ensure we have enough entries
+        while map.count < matrixSize {
+            map.append(map.count)
+        }
+
+        return map
     }
 
     /// Builds the data placement path (counter-clockwise spiral, 2 bits wide).
@@ -408,49 +457,67 @@ public struct AztecMatrixBuilder: Sendable {
     }
 
     /// Builds the path for a single layer (2-module wide ring).
+    /// Following ZXing's interleaved placement: for each position j along the edges,
+    /// place 2 bits on top, 2 on right, 2 on bottom, 2 on left, then move to j+1.
+    /// This matches ZXing's nested loop structure where the outer loop is j (position)
+    /// and the inner loop is k (which of the 2 bits).
     private func buildLayerPath(center: Int, innerRadius: Int, size: Int) -> [(Int, Int)] {
         var path: [(Int, Int)] = []
 
+        let i = 0  // Layer offset within this call (always 0 for single layer building)
+        // rowSize determines how many positions along each edge
+        // For compact symbols, this follows ZXing's formula: (layers - i) * 4 + 9
+        // But since we build one layer at a time, we calculate based on geometry
         let outerRadius = innerRadius + 1
-        let minCoord = max(0, center - outerRadius)
-        let maxCoord = min(size - 1, center + outerRadius)
+        let edgeLength = outerRadius * 2 + 1  // Total edge length including corners
 
-        // Top edge: right to left (2 rows)
-        for x in stride(from: maxCoord, through: minCoord, by: -1) {
-            for rowOffset in 0...1 {
-                let y = center - outerRadius + rowOffset
-                if y >= 0 && y < size && !isReservedPosition(x: x, y: y, center: center, size: size) {
-                    path.append((x, y))
+        // Calculate row size similar to ZXing: this is the number of j iterations
+        // For a layer at distance innerRadius from center, the edge size is 2*outerRadius + 1
+        // But ZXing uses rowSize = (layers - i) * 4 + (compact ? 9 : 12) for the iteration count
+        // For compact L1 at layer 0: rowSize = 1 * 4 + 9 = 13
+
+        // Actually, let me compute this more directly from the geometry
+        // The data layer starts at radius 6 for compact (just outside mode message at radius 5)
+        // Edge length = 2 * (innerRadius + 1) + 1 = 2 * 7 + 1 = 15 for first layer
+        // But we need to skip the corners that overlap between edges
+
+        // ZXing iterates j from 0 to rowSize-1, placing 8 bits per j (2 per side)
+        // Let's compute the positions more directly
+
+        let rowSize = edgeLength  // Number of positions per edge
+
+        for j in 0..<rowSize {
+            for k in 0..<2 {
+                // Top: x increases left to right, y is near top
+                let topX = center - outerRadius + j
+                let topY = center - outerRadius + k
+                if topX >= 0 && topX < size && topY >= 0 && topY < size &&
+                   !isReservedPosition(x: topX, y: topY, center: center, size: size) {
+                    path.append((topX, topY))
                 }
-            }
-        }
 
-        // Left edge: top to bottom (2 columns)
-        for y in (center - outerRadius + 2)...(center + outerRadius) {
-            for colOffset in stride(from: 1, through: 0, by: -1) {
-                let x = center - outerRadius + colOffset
-                if x >= 0 && x < size && y < size && !isReservedPosition(x: x, y: y, center: center, size: size) {
-                    path.append((x, y))
+                // Right: y increases top to bottom, x is near right
+                let rightX = center + outerRadius - k
+                let rightY = center - outerRadius + j
+                if rightX >= 0 && rightX < size && rightY >= 0 && rightY < size &&
+                   !isReservedPosition(x: rightX, y: rightY, center: center, size: size) {
+                    path.append((rightX, rightY))
                 }
-            }
-        }
 
-        // Bottom edge: left to right (2 rows)
-        for x in (center - outerRadius + 2)...(center + outerRadius) {
-            for rowOffset in stride(from: 1, through: 0, by: -1) {
-                let y = center + outerRadius - rowOffset
-                if y < size && x < size && !isReservedPosition(x: x, y: y, center: center, size: size) {
-                    path.append((x, y))
+                // Bottom: x decreases right to left, y is near bottom
+                let bottomX = center + outerRadius - j
+                let bottomY = center + outerRadius - k
+                if bottomX >= 0 && bottomX < size && bottomY >= 0 && bottomY < size &&
+                   !isReservedPosition(x: bottomX, y: bottomY, center: center, size: size) {
+                    path.append((bottomX, bottomY))
                 }
-            }
-        }
 
-        // Right edge: bottom to top (2 columns)
-        for y in stride(from: center + outerRadius - 2, through: center - outerRadius, by: -1) {
-            for colOffset in 0...1 {
-                let x = center + outerRadius - colOffset
-                if x < size && y >= 0 && !isReservedPosition(x: x, y: y, center: center, size: size) {
-                    path.append((x, y))
+                // Left: y decreases bottom to top, x is near left
+                let leftX = center - outerRadius + k
+                let leftY = center + outerRadius - j
+                if leftX >= 0 && leftX < size && leftY >= 0 && leftY < size &&
+                   !isReservedPosition(x: leftX, y: leftY, center: center, size: size) {
+                    path.append((leftX, leftY))
                 }
             }
         }
