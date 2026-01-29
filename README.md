@@ -1,5 +1,9 @@
 # AztecLib
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ts95/AztecLibSwift/releases/tag/1.0.0)
+[![Swift 5.9+](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![Platforms](https://img.shields.io/badge/Platforms-iOS%20|%20macOS%20|%20tvOS%20|%20watchOS%20|%20visionOS-lightgray.svg)](https://developer.apple.com)
+
 A pure Swift library for generating Aztec 2D barcodes. This library implements the ISO/IEC 24778 standard for Aztec Code symbology.
 
 ## Features
@@ -11,19 +15,37 @@ A pure Swift library for generating Aztec 2D barcodes. This library implements t
 - Thread-safe: all types conform to `Sendable`
 - No unsafe memory operations
 
+## Requirements
+
+- Swift 5.9+
+- iOS 15.0+ / macOS 12.0+ / tvOS 15.0+ / watchOS 8.0+ / visionOS 1.0+
+
 ## Installation
 
 ### Swift Package Manager
 
-Add the following to your `Package.swift`:
+Add AztecLib to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-    .package(path: "path/to/AztecLib")
+    .package(url: "https://github.com/ts95/AztecLibSwift.git", from: "1.0.0")
 ]
 ```
 
-Or add it via Xcode: File → Add Package Dependencies → Add Local...
+Then add it to your target dependencies:
+
+```swift
+.target(
+    name: "YourApp",
+    dependencies: ["AztecLib"]
+)
+```
+
+### Xcode
+
+1. File → Add Package Dependencies
+2. Enter the repository URL
+3. Select version "1.0.0" or later
 
 ## Quick Start
 
@@ -39,6 +61,28 @@ print("Bytes per row: \(symbol.rowStride)")
 
 // Check individual modules (pixels)
 let isDark = symbol[x: 0, y: 0]  // true = dark module, false = light
+```
+
+## SwiftUI Integration
+
+AztecLib includes SwiftUI views for easy barcode display:
+
+```swift
+import AztecLib
+import SwiftUI
+
+struct ContentView: View {
+    var body: some View {
+        // Simple usage - encode and display in one step
+        AztecCodeView("Hello, World!")
+            .frame(width: 200, height: 200)
+
+        // Or use a pre-encoded symbol
+        let symbol = try! AztecEncoder.encode("Hello")
+        AztecSymbolView(symbol: symbol)
+            .frame(width: 200, height: 200)
+    }
+}
 ```
 
 ## Public API
@@ -232,7 +276,7 @@ let symbol = matrix.makeSymbolExport(
 
 ## Documentation
 
-For detailed explanations of the algorithms and mathematics used in this library, see the [Docs/](Docs/) directory:
+For detailed explanations of the algorithms and mathematics used in this library, see the [AztecLib/Docs/](AztecLib/Docs/) directory:
 
 - [Overview](AztecLib/Docs/01-Overview.md) - What Aztec codes are and how they work
 - [Encoding Pipeline](AztecLib/Docs/02-EncodingPipeline.md) - How data becomes a barcode
@@ -240,6 +284,10 @@ For detailed explanations of the algorithms and mathematics used in this library
 - [Galois Fields](AztecLib/Docs/04-GaloisFields.md) - The math behind error correction
 - [Reed-Solomon](AztecLib/Docs/05-ReedSolomon.md) - How error correction works
 - [Symbol Layout](AztecLib/Docs/06-SymbolLayout.md) - Structure of an Aztec barcode
+
+## Acknowledgments
+
+This library was primarily developed with the assistance of [Claude Code](https://claude.ai/code) (Claude Opus 4.5), Anthropic's AI coding assistant. The implementation draws inspiration from [ZXing](https://github.com/zxing/zxing) ("Zebra Crossing"), the open-source barcode processing library.
 
 ## License
 
