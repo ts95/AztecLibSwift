@@ -728,7 +728,7 @@ struct StuffingPropertyTests {
 
 // MARK: - Reference Grid Tests for Full Symbols
 
-struct ReferenceGridTests {
+struct ReferenceGridVerificationTests {
 
     @Test
     func compact_symbols_have_no_reference_grid() throws {

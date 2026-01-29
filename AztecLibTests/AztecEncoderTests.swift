@@ -43,6 +43,24 @@ struct AztecEncoderTests {
         #expect(symbol.size > 0)
     }
 
+    @Test
+    func encodes_large_binary_data_requiring_12_layers() throws {
+        // This test verifies the fix for the reference grid issue with layer 12 symbols.
+        // Previously, the data path calculation incorrectly excluded reference grid positions
+        // for symbols with < 16 layers, causing an assertion failure.
+        // 366 bytes of binary data requires a 12-layer full symbol (63x63).
+        let base64 = "CpwCCpkCCpYCCiQ3ZjY1ZmE0Mi04Y2FjLTQ3ZjQtYjEyYy1jNDNlNWUzM2JjNjISDAiT0+zLBhC81JHHAhrcAQoEDAMFCBIYCAESFG5vLnJ1dGVyLlJlaXNlLnN0YWdlEggIAxIEMjYuMBIICAQSBDI2LjASCQgFEgVBcHBsZRIJCAYSBWFybTY0ElgIBxJUUlVUOkN1c3RvbWVyQWNjb3VudDpkMGM4NThiYzE1OTBjODU1ODY0OGFhMTc1ZDA0ZDA3Y2RiNWI1MjMzZmRmMDY0M2FhOGM0ZTQ4YWJlYjFkYjcyEgsICRIHMTYuMTAuMBIPCAoSC0RFVkVMT1BNRU5UEg4ICxIKNDkyR0ZKMzZYVhIICAwSBDExMzUiAQQSTQpGMEQCIHpHDShB/pKwYaJf3n2mz1nIiXmGkfJdIPCL6dSxIXVWAiA6LcQwlOucEXYsnCcBW/KJebY/IIANVyHNyTXOfp6gaxoBTjAB"
+        let data = Data(base64Encoded: base64)!
+
+        #expect(data.count == 366, "Test data should be 366 bytes")
+
+        let result = try AztecEncoder.encodeWithDetails([UInt8](data))
+
+        #expect(result.symbol.size == 63, "366 bytes should produce a 63x63 symbol")
+        #expect(result.configuration.layerCount == 12, "366 bytes should use 12 layers")
+        #expect(result.configuration.isCompact == false, "Large data requires full symbol")
+    }
+
     // MARK: - Options
 
     @Test

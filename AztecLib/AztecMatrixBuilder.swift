@@ -42,6 +42,16 @@ public struct AztecMatrixBuilder: Sendable {
         return symbolSize / 2
     }
 
+    /// Returns true if this configuration includes reference grid lines.
+    /// Reference grid lines appear in full symbols with 15 or more layers.
+    public var hasReferenceGrid: Bool {
+        guard !configuration.isCompact else { return false }
+        // Reference grid lines are added when (layers - 1) / 15 > 0, i.e., layers >= 16
+        // However, the grid is drawn at multiples of 16 from center when the symbol
+        // is large enough to contain them. For layers 1-14, no reference grid.
+        return (configuration.layerCount - 1) / 15 > 0
+    }
+
     // MARK: - Matrix Building
 
     /// Builds the complete symbol matrix with all components.
@@ -63,7 +73,7 @@ public struct AztecMatrixBuilder: Sendable {
         // Draw components in order
         drawFinderPattern(matrix: &matrix, size: size)
         drawModeMessage(matrix: &matrix, size: size, bits: modeMessageBits)
-        if !configuration.isCompact {
+        if hasReferenceGrid {
             drawReferenceGrid(matrix: &matrix, size: size)
         }
         placeDataCodewords(matrix: &matrix, size: size, codewords: dataCodewords)
@@ -322,7 +332,7 @@ public struct AztecMatrixBuilder: Sendable {
 
     /// Checks if a position is on a reference grid line.
     private func isOnReferenceGrid(x: Int, y: Int, center: Int) -> Bool {
-        guard !configuration.isCompact else { return false }
+        guard hasReferenceGrid else { return false }
         let dx = abs(x - center)
         let dy = abs(y - center)
         return (dx > 7 && dx % 16 == 0) || (dy > 7 && dy % 16 == 0)
@@ -441,8 +451,8 @@ public struct AztecMatrixBuilder: Sendable {
             return true
         }
 
-        // Reference grid (full symbols only)
-        if !configuration.isCompact {
+        // Reference grid (only for full symbols with 16+ layers)
+        if hasReferenceGrid {
             let dx = x - center
             let dy = y - center
             // Grid lines at multiples of 16 from center
