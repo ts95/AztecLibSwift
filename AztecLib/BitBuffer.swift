@@ -286,7 +286,7 @@ extension BitBuffer {
     // MARK: - Mode-message helpers (GF(16) nibbles)
 
     /// Packs an array of 4-bit nibbles into a bit buffer, most-significant-bit first per nibble.
-    /// Example: nibble 0xA → bits 1010.
+    /// Example: nibble 0xA (binary 1010) → bits placed as: 1, 0, 1, 0 (MSB first).
     ///
     /// - Parameter nibbles: Values in 0x0...0xF.
     /// - Returns: A `BitBuffer` containing 4 * nibbles.count bits, MSB-first per nibble.
@@ -294,14 +294,17 @@ extension BitBuffer {
         var b = BitBuffer()
         b.reserveCapacity(bitCount: nibbles.count * 4)
         for n in nibbles {
-            let v = UInt64(n & 0xF)
-            // MSB-first within the nibble: write the top bit first
-            b.appendMostSignificantBits(v << 60, bitCount: 4) // reuse MSB path; top-aligned
+            // Write each bit of the nibble, starting with the MSB (bit 3)
+            for bitPos in stride(from: 3, through: 0, by: -1) {
+                let bit = UInt64((n >> bitPos) & 1)
+                b.appendLeastSignificantBits(bit, bitCount: 1)
+            }
         }
         return b
     }
 
     /// Unpacks 4-bit nibbles from a bit buffer, reading MSB-first per nibble.
+    /// The buffer should have been packed with `makeBitBufferByPackingMostSignificantNibbles`.
     ///
     /// - Parameters:
     ///   - nibbleCount: Number of nibbles to read.
@@ -311,8 +314,14 @@ extension BitBuffer {
         out.reserveCapacity(nibbleCount)
         var pos = 0
         for _ in 0..<nibbleCount {
-            let v = mostSignificantBits(atBitPosition: pos, bitCount: 4)
-            out.append(UInt8((v >> 60) & 0xF))
+            // Read 4 bits where position 0 = MSB of nibble
+            var nibble: UInt8 = 0
+            for bitOffset in 0..<4 {
+                let bit = leastSignificantBits(atBitPosition: pos + bitOffset, bitCount: 1)
+                // Bit at offset 0 is MSB (value 8), offset 1 is value 4, etc.
+                nibble |= UInt8(bit) << (3 - bitOffset)
+            }
+            out.append(nibble)
             pos += 4
         }
         return out
